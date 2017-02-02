@@ -164,7 +164,7 @@ Function Get-CertFromLDAP {
         throw "Unknown protocol. LDAP(S) only."
     }
 
-    $ldapConnection = New-Object System.DirectoryServices.Protocols.LdapConnection "($($ldapstring.Host):$($ldapstring.Port))"
+    $ldapConnection = New-Object System.DirectoryServices.Protocols.LdapConnection "$($ldapstring.Host):$($ldapstring.Port)"
     $ldapConnection.SessionOptions.SecureSocketLayer = $secure
     $ldapConnection.SessionOptions.ProtocolVersion = 3
     $ldapConnection.AuthType = [System.DirectoryServices.Protocols.AuthType]::Anonymous
