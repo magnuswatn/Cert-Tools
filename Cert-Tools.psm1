@@ -54,13 +54,22 @@ Function Show-PEM($certificate) {
             $i = 0
         } else { 
             $pemcert += $char 
-        } 
+        }
         $i += 1
     }
     $pemcert += "`r`n-----END CERTIFICATE-----"
 
     "[PEM format]"
     "$pemcert `r`n"
+}
+
+Function Show-HEX($data) {
+    $hexdump=""
+    $rawdata = [System.Convert]::FromBase64String($data)
+    foreach($byte in $rawdata) {
+        $hexdump+="{0:X2}:" -f $byte
+    }
+    return $hexdump.Substring(0,$hexdump.Length-1)
 }
 
 Function Get-CertificateFromFile($path) {
@@ -126,7 +135,7 @@ Function Get-CertFromLDAP {
     .OUTPUTS
        Certificate information
     .NOTES
-       Example urls for Norwegian qualifies certificates:
+       Example urls for Norwegian qualified certificates:
 
         Buypass PROD:
             ldap://ldap.buypass.no/dc=Buypass,dc=no,CN=Buypass%20Class%203%20CA%203?usercertificate;binary?sub?(serialnumber=983163327)
@@ -327,6 +336,8 @@ Function Submit-CertToCT {
 
         $logurl = $_.Value
 
+        $thebegnning = Get-Date 1/1/1970
+
         $addurl = "$($logurl)/ct/v1/add-chain" -replace "(?<!:)\/\/", "/" # ugly hack to avoid double slashes
 
         try {
@@ -338,13 +349,13 @@ Function Submit-CertToCT {
 
         "`r`n#####################$($logurl)#####################"
         "[SCT version]"
-        " $($loganswer.sct_version)"
+        " $($loganswer.sct_version)`r`n"
         "[Log ID]"
-        " $($loganswer.id)"
+        " $(Show-HEX($loganswer.id))`r`n"
         "[Timestamp]"
-        " $($loganswer.timestamp)"
+        " $(Get-Date $thebegnning.AddMilliseconds($loganswer.timestamp) -format s)`r`n"
         "[Extensions]"
-        " $($loganswer.extensions)"
+        " $($loganswer.extensions)`r`n"
         "[Signature]"
         " $($loganswer.signature)`r`n"
     }
