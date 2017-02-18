@@ -64,6 +64,7 @@ Function Show-PEM($certificate) {
 }
 
 Function Show-HEX($data) {
+    <# Print base64 encoded data as HEX #>
     $hexdump=""
     $rawdata = [System.Convert]::FromBase64String($data)
     foreach($byte in $rawdata) {
@@ -396,7 +397,7 @@ Function Get-CertFromCT {
     
     # TODO: add the possibility to use a Cert Spotter account
 
-    $response = Invoke-RestMethod -Uri "https://certspotter.com/api/v0/certs?domain=$($domain)"
+    $response = Invoke-RestMethod -Uri "https://certspotter.com/api/v0/certs?domain=$($domain)&duplicate=$($IncludeDuplicate)"
 
     foreach ($i in $response) {
         $cert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2
