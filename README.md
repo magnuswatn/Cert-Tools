@@ -18,6 +18,10 @@ Gets certificate(s) for a domain from the Certificate Transparency logs. Uses th
 
 Gets certificates from an LDAP URL. Primarily useful for Norwegian qualified certificates.
 
+**Get-CertFromFile**
+
+Displays information about a certificate loaded from a file
+
 **Submit-CertToCT**
 
 Submits a certificate to Certificate Transparency logs.

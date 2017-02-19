@@ -452,6 +452,42 @@ Function Get-CertFromHost {
     }
 }
 
+Function Get-CertFromFile {
+    <#
+    .Synopsis
+       Displays information about a certificate from a file
+    .DESCRIPTION
+       Displays information about a certificate from a file
+    .EXAMPLE
+       Get-CertFromURL ./cert.cer
+       Displays information about the certificate from cert.cer
+    .EXAMPLE
+       Get-CertFromURL ./cert.cer -PrintPEM
+       Displays information about the certificate from cert.cer and prints it out in PEM format
+    .INPUTS
+       A certificate
+    .OUTPUTS
+       Information about the certificate
+    #>
+    [cmdletbinding()]
+    Param([Parameter(mandatory=$true)][String]$file,
+          [Parameter(mandatory=$false)][Switch]$Open,
+          [Parameter(mandatory=$false)][Switch]$PrintPEM)
+
+    $ErrorActionPreference = "Stop"
+
+    $cert = Get-CertificateFromFile($file)
+
+    Show-CertificateInfo (Resolve-Path -Path $file).path $cert
+
+    if ($PrintPEM) {
+        Show-PEM($cert)
+    }
+    if ($open) {
+        Open-Certificate($cert)
+    }
+}
+
 #endregion
 
-Export-ModuleMember -Function Get-CertFromLDAP, Submit-CertToCT, Get-CertFromCT, Get-CertFromHost
+Export-ModuleMember -Function Get-CertFromLDAP, Submit-CertToCT, Get-CertFromCT, Get-CertFromHost, Get-CertFromFile
