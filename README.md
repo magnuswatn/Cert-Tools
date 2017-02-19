@@ -26,6 +26,10 @@ Displays information about a certificate loaded from a file
 
 Displays information about a base64 encoded certificate (e.g. taken from a SOAP message or similar)
 
+**Get-CertFromPKCS12**
+
+Displays information about certificates in a PKCS12 keystore
+
 **Submit-CertToCT**
 
 Submits a certificate to Certificate Transparency logs.
