@@ -562,6 +562,71 @@ Function Get-CertFromBase64 {
     }
 }
 
+Function Get-CertFromPKCS12 {
+    <#
+    .Synopsis
+       Shows information about certificates from a pkcs12 keystore.
+    .DESCRIPTION
+        Lists out all the certificates in a pkcs12 keystore.
+    .EXAMPLE
+       Get-CertFromPKCS12 .\pkcs12file.pfx -password passw0rd
+       Displays information about the certificates in the pkcs12file.pfx file
+    .EXAMPLE
+       Get-CertFromPKCS12 .\pkcs12file.pfx -password passw0rd -Open
+       Displays information about the certificates in the pkcs12file.pfx file
+       and opens them in the Windows certificate dialog
+    .INPUTS
+       A pkcs12 keystore (pfx/p12) (and the password)
+    .OUTPUTS
+       Information about the certificate(s)
+    #>
+    [cmdletbinding()]
+    Param([Parameter(mandatory=$true)][String]$file,
+          [Parameter(mandatory=$false)][String]$password,
+          [Parameter(mandatory=$false)][Switch]$Open,
+          [Parameter(mandatory=$false)][Switch]$PrintPEM,
+          [Parameter(mandatory=$false)][Switch]$Status)
+
+    $ErrorActionPreference = "Stop"
+
+    if ($password) {
+        $securepassword = ($password | ConvertTo-SecureString -AsPlainText -Force)
+    } else {
+        $securepassword = Read-Host -Prompt "Enter password" -AsSecureString
+    }
+
+    $certs = Get-PfxData -FilePath $file -Password $securepassword
+
+    $certs.EndEntityCertificates | ForEach-Object {
+
+        Show-CertificateInfo $_.Subject $_
+
+        if ($Status) {
+            Show-CertificateStatus($_)
+        }
+        if ($PrintPEM) {
+            Show-PEM($_)
+        }
+        if ($open) {
+            Open-Certificate($_)
+        }
+    }
+
+    $certs.OtherCertificates | ForEach-Object {
+        Show-CertificateInfo $_.Subject $_
+
+        if ($Status) {
+            Show-CertificateStatus($_)
+        }
+        if ($PrintPEM) {
+            Show-PEM($_)
+        }
+        if ($open) {
+            Open-Certificate($_)
+        }
+    }
+}
+
 #endregion
 
-Export-ModuleMember -Function Get-CertFromLDAP, Submit-CertToCT, Get-CertFromCT, Get-CertFromHost, Get-CertFromFile, Get-CertFromBase64
+Export-ModuleMember -Function Get-CertFromLDAP, Submit-CertToCT, Get-CertFromCT, Get-CertFromHost, Get-CertFromFile, Get-CertFromBase64, Get-CertFromPKCS12
