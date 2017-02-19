@@ -22,6 +22,10 @@ Gets certificates from an LDAP URL. Primarily useful for Norwegian qualified cer
 
 Displays information about a certificate loaded from a file
 
+**Get-CertFromBase64**
+
+Displays information about a base64 encoded certificate (e.g. taken from a SOAP message or similar)
+
 **Submit-CertToCT**
 
 Submits a certificate to Certificate Transparency logs.

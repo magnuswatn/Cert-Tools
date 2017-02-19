@@ -488,6 +488,48 @@ Function Get-CertFromFile {
     }
 }
 
+Function Get-CertFromBase64 {
+    <#
+    .Synopsis
+       Displays information about a certificate from a base64 encoded string
+    .DESCRIPTION
+       Displays information about a certificate from a base64 encoded string
+    .EXAMPLE
+       Get-CertFromBase64 VGhpcyBpcyBzdXBwb3NlZCB0byBiZSBhIGNlcnRpZmljYXRl...
+       Displays information about the base64 encoded certificate
+    .EXAMPLE
+       Get-CertFromBase64 VGhpcyBpcyBzdXBwb3NlZCB0byBiZSBhIGNlcnRpZmljYXRl... -PrintPEM
+       Displays information about the base64 encoded certificate and prints it out in PEM format
+    .INPUTS
+       A certificate encoded as base64
+    .OUTPUTS
+       Information about the certificate
+    #>
+    [cmdletbinding()]
+    Param([Parameter(mandatory=$true)][String]$string,
+          [Parameter(mandatory=$false)][Switch]$Open,
+          [Parameter(mandatory=$false)][Switch]$PrintPEM)
+
+    $ErrorActionPreference = "Stop"
+
+    $cert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2
+
+    try {
+        $cert.Import([System.Convert]::FromBase64String($string))
+    } catch {
+        throw "Could not load certificate: $($_)"
+    }
+
+    Show-CertificateInfo "cert" $cert
+
+    if ($PrintPEM) {
+        Show-PEM($cert)
+    }
+    if ($open) {
+        Open-Certificate($cert)
+    }
+}
+
 #endregion
 
-Export-ModuleMember -Function Get-CertFromLDAP, Submit-CertToCT, Get-CertFromCT, Get-CertFromHost, Get-CertFromFile
+Export-ModuleMember -Function Get-CertFromLDAP, Submit-CertToCT, Get-CertFromCT, Get-CertFromHost, Get-CertFromFile, Get-CertFromBase64
