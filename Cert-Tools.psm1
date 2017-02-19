@@ -103,6 +103,18 @@ Function Show-CertificateInfo($id, $cert) {
     "  $($cert.verify()) `r`n"
 }
 
+Function Show-CertificateStatus($cert) {
+    <# Prints information about the trust status of a certificate #>
+    $chain = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Chain
+
+    "[Certificate status]"
+    if($chain.Build($cert)) {
+        " OK`r`n"
+    } else {
+        " $($chain.ChainStatus.StatusInformation)`r`n"
+    }
+}
+
 #endregion
 
 
@@ -160,6 +172,7 @@ Function Get-CertFromLDAP {
     Param([Parameter(mandatory=$true)][System.Uri]$ldapstring,
           [Parameter(mandatory=$false)][Switch]$Open,
           [Parameter(mandatory=$false)][Switch]$PrintPEM,
+          [Parameter(mandatory=$false)][Switch]$Status,
           [Parameter(mandatory=$false)][Switch]$OnlyValid,
           [Parameter(mandatory=$false)][Int]$MaxRetries=5)
     
@@ -224,6 +237,9 @@ Function Get-CertFromLDAP {
 
                 Show-CertificateInfo $i.DistinguishedName $cert
 
+                if ($Status) {
+                    Show-CertificateStatus($cert)
+                }
                 if ($PrintPEM) {
                     Show-PEM($cert)
                 }
@@ -390,6 +406,7 @@ Function Get-CertFromCT {
     Param([Parameter(mandatory=$true)][System.Uri]$domain,
           [Parameter(mandatory=$false)][Switch]$Open,
           [Parameter(mandatory=$false)][Switch]$PrintPEM,
+          [Parameter(mandatory=$false)][Switch]$Status,
           [Parameter(mandatory=$false)][Switch]$OnlyValid,
           [Parameter(mandatory=$false)][Switch]$IncludeDuplicate)
     
@@ -406,6 +423,9 @@ Function Get-CertFromCT {
 
         Show-CertificateInfo $i.sha256 $cert
 
+        if ($Status) {
+            Show-CertificateStatus($cert)
+        }
         if ($PrintPEM) {
             Show-PEM($cert)
         }
@@ -436,7 +456,8 @@ Function Get-CertFromHost {
     [cmdletbinding()]
     Param([Parameter(mandatory=$true)][String]$host,
           [Parameter(mandatory=$false)][Switch]$Open,
-          [Parameter(mandatory=$false)][Switch]$PrintPEM)
+          [Parameter(mandatory=$false)][Switch]$PrintPEM,
+          [Parameter(mandatory=$false)][Switch]$Status)
 
     $ErrorActionPreference = "Stop"
 
@@ -444,6 +465,9 @@ Function Get-CertFromHost {
 
     Show-CertificateInfo $host $cert
 
+    if ($Status) {
+        Show-CertificateStatus($cert)
+    }
     if ($PrintPEM) {
         Show-PEM($cert)
     }
@@ -472,7 +496,8 @@ Function Get-CertFromFile {
     [cmdletbinding()]
     Param([Parameter(mandatory=$true)][String]$file,
           [Parameter(mandatory=$false)][Switch]$Open,
-          [Parameter(mandatory=$false)][Switch]$PrintPEM)
+          [Parameter(mandatory=$false)][Switch]$PrintPEM,
+          [Parameter(mandatory=$false)][Switch]$Status)
 
     $ErrorActionPreference = "Stop"
 
@@ -480,6 +505,9 @@ Function Get-CertFromFile {
 
     Show-CertificateInfo (Resolve-Path -Path $file).path $cert
 
+    if ($Status) {
+        Show-CertificateStatus($cert)
+    }
     if ($PrintPEM) {
         Show-PEM($cert)
     }
@@ -508,7 +536,8 @@ Function Get-CertFromBase64 {
     [cmdletbinding()]
     Param([Parameter(mandatory=$true)][String]$string,
           [Parameter(mandatory=$false)][Switch]$Open,
-          [Parameter(mandatory=$false)][Switch]$PrintPEM)
+          [Parameter(mandatory=$false)][Switch]$PrintPEM,
+          [Parameter(mandatory=$false)][Switch]$Status)
 
     $ErrorActionPreference = "Stop"
 
@@ -522,6 +551,9 @@ Function Get-CertFromBase64 {
 
     Show-CertificateInfo "cert" $cert
 
+    if ($Status) {
+        Show-CertificateStatus($cert)
+    }
     if ($PrintPEM) {
         Show-PEM($cert)
     }
