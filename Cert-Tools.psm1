@@ -111,7 +111,7 @@ Function Show-CertificateStatus($cert) {
     if($chain.Build($cert)) {
         "  OK`r`n"
     } else {
-        " $($chain.ChainStatus.StatusInformation)`r`n"
+        "  $($chain.ChainStatus.StatusInformation)`r`n"
     }
 }
 
