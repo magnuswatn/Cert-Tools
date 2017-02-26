@@ -98,7 +98,7 @@ Function Show-CertificateInfo($id, $cert) {
     "[Serial Number in INT]"
     "  $serialnumberINT `r`n"
     "[DNS names]"
-    $cert.DnsNameList.UniCode | foreach { " $_" }
+    $cert.DnsNameList.UniCode | foreach { "  $_" }
     "`r`n[Is trusted]"
     "  $($cert.verify()) `r`n"
 }
@@ -109,7 +109,7 @@ Function Show-CertificateStatus($cert) {
 
     "[Certificate status]"
     if($chain.Build($cert)) {
-        " OK`r`n"
+        "  OK`r`n"
     } else {
         " $($chain.ChainStatus.StatusInformation)`r`n"
     }
