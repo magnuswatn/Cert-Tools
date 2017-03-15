@@ -304,9 +304,9 @@ Function Submit-CertToCT {
        See RFC 6962 for more information about Certificate Transparency.
     #>
     [cmdletbinding()]
-    Param([Parameter(ParameterSetName='fromHost')][System.Uri]$host,
+    Param([Parameter(ParameterSetName='fromHost')][System.String]$host,
           [Parameter(ParameterSetName='fromCERT')][System.String]$cert,
-          [Parameter(mandatory=$false)][System.String]$log)
+          [Parameter(mandatory=$false)][System.Uri]$log)
 
     $ErrorActionPreference = "Stop"
 
@@ -321,7 +321,7 @@ Function Submit-CertToCT {
     [Net.ServicePointManager]::SecurityProtocol = 'tls12' # if the log don't support TLSv1.2 it's not worth submitting to
 
     if ($log) {
-        $logs = @{'user-specified' = [System.Uri]$log }
+        $logs = @{'user-specified' = $log }
     }
 
     if ($cert) {
@@ -403,7 +403,7 @@ Function Get-CertFromCT {
        See RFC 6962 for more information about Certificate Transparency.
     #>
     [cmdletbinding()]
-    Param([Parameter(mandatory=$true)][System.Uri]$domain,
+    Param([Parameter(mandatory=$true)][String]$domain,
           [Parameter(mandatory=$false)][Switch]$Open,
           [Parameter(mandatory=$false)][Switch]$PrintPEM,
           [Parameter(mandatory=$false)][Switch]$Status,
