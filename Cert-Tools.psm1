@@ -283,6 +283,9 @@ Function Submit-CertToCT {
        Google 'Pilot' log (https://ct.googleapis.com/pilot)
        Google 'Rocketeer' log (https://ct.googleapis.com/rocketeer)
        Comodo Dodo (https://dodo.ct.comodo.com)
+       Comodo Mammoth (https://mammoth.ct.comodo.com)
+       Comodo Sabre (https://sabre.ct.comodo.com)
+       Let's Encrypt Clicky (https://clicky.ct.letsencrypt.org)
 
     .EXAMPLE
        Submit-CertToCT -url https://example.com
@@ -312,9 +315,12 @@ Function Submit-CertToCT {
 
     # Default logs
     $logs = @{
-	    'pilot' =     [System.Uri]"https://ct.googleapis.com/pilot";
-	    'rocketeer' = [System.Uri]"https://ct.googleapis.com/rocketeer";
-	    'comodo-dodo' = [System.Uri]"https://dodo.ct.comodo.com"
+        'pilot' =     [System.Uri]"https://ct.googleapis.com/pilot";
+        'rocketeer' = [System.Uri]"https://ct.googleapis.com/rocketeer";
+        'comodo-dodo' = [System.Uri]"https://dodo.ct.comodo.com";
+        'comodo-mammoth' = [System.Uri]"https://mammoth.ct.comodo.com";
+        'comodo-sabre' = [System.Uri]"https://sabre.ct.comodo.com";
+        'letsencrypt-clicky' = [System.Uri]"https://clicky.ct.letsencrypt.org"
     }
 
     $oldtlsprotocols = [Net.ServicePointManager]::SecurityProtocol
