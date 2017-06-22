@@ -399,6 +399,9 @@ Function Get-CertFromCT {
        Get-CertFromCT watn.no -open
        The information about the certificates for the domain watn.no is printed, and the certificates is opened in the Windows certificate dialog
     .EXAMPLE
+       Get-CertFromCT watn.no -OpenInCrtSh
+       The information about the certificates for the domain watn.no is printed, and the certificates is showed on crt.sh
+    .EXAMPLE
        Get-CertFromCT watn.no -PrintPEM
        The information about the certificates for the domain watn.no is printed, and the certificates is printed in PEM format  
     .INPUTS
@@ -414,7 +417,8 @@ Function Get-CertFromCT {
           [Parameter(mandatory=$false)][Switch]$PrintPEM,
           [Parameter(mandatory=$false)][Switch]$Status,
           [Parameter(mandatory=$false)][Switch]$OnlyValid,
-          [Parameter(mandatory=$false)][Switch]$IncludeDuplicate)
+          [Parameter(mandatory=$false)][Switch]$IncludeDuplicate,
+          [Parameter(mandatory=$false)][Switch]$OpenInCrtSh)
     
     $ErrorActionPreference = "Stop"
     
@@ -437,6 +441,9 @@ Function Get-CertFromCT {
         }
         if ($open) {
             Open-Certificate($cert)
+        }
+        if ($OpenInCrtSh) {
+            Start-Process "https://crt.sh/?q=$($i.sha256)"
         }
     }
 }
