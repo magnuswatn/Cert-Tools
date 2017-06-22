@@ -287,7 +287,6 @@ Function Submit-CertToCT {
        Comodo Dodo (https://dodo.ct.comodo.com)
        Comodo Mammoth (https://mammoth.ct.comodo.com)
        Comodo Sabre (https://sabre.ct.comodo.com)
-       Let's Encrypt Clicky (https://clicky.ct.letsencrypt.org)
 
     .EXAMPLE
        Submit-CertToCT -url https://example.com
@@ -322,7 +321,6 @@ Function Submit-CertToCT {
         'comodo-dodo' = [System.Uri]"https://dodo.ct.comodo.com";
         'comodo-mammoth' = [System.Uri]"https://mammoth.ct.comodo.com";
         'comodo-sabre' = [System.Uri]"https://sabre.ct.comodo.com";
-        'letsencrypt-clicky' = [System.Uri]"https://clicky.ct.letsencrypt.org"
     }
 
     $oldtlsprotocols = [Net.ServicePointManager]::SecurityProtocol
