@@ -24,6 +24,8 @@ Function Get-CertificateFromHost($host) {
     $request = [System.Net.HttpWebRequest]::Create($url)
 
     $request.AllowAutoRedirect = $false
+    $request.UserAgent = "Cert-Tools (https://github.com/magnuswatn/cert-tools)"
+    $request.KeepAlive = $false
 
     try {
         $request.GetResponse().Dispose()
