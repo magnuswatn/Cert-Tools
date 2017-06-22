@@ -293,13 +293,13 @@ Function Submit-CertToCT {
        Submit-CertToCT -url https://example.com
        Get the certificate from example.com and submit it to the default logs
     .EXAMPLE
-       Submit-CertToCT -url https://example.com-logg https://ct.googleapis.com/pilot
+       Submit-CertToCT -url https://example.com -log https://ct.googleapis.com/pilot
        Get the certificate from example.com and submit it to Googles PILOT log
     .EXAMPLE
-       Submit-CertToCT -cert ./cert.cer
+       Submit-CertToCT -file ./cert.cer
        Submit the specified certificate to the default logs
     .EXAMPLE
-       Submit-CertToCT -cert ./cert.cer -logg https://ct.googleapis.com/pilot
+       Submit-CertToCT -file ./cert.cer -log https://ct.googleapis.com/pilot
        Submit the specified certificate to the Google PILOT log
     .INPUTS
        A certificate, or a URL presenting a certificate, and optionally a URL to an CT log
@@ -310,7 +310,7 @@ Function Submit-CertToCT {
     #>
     [cmdletbinding()]
     Param([Parameter(ParameterSetName='fromHost')][System.String]$host,
-          [Parameter(ParameterSetName='fromCERT')][System.String]$cert,
+          [Parameter(ParameterSetName='fromFile')][System.String]$file,
           [Parameter(mandatory=$false)][System.Uri]$log)
 
     $ErrorActionPreference = "Stop"
@@ -332,8 +332,8 @@ Function Submit-CertToCT {
         $logs = @{'user-specified' = $log }
     }
 
-    if ($cert) {
-        $certificate = Get-CertificateFromFile($cert)
+    if ($file) {
+        $certificate = Get-CertificateFromFile($file)
     } else {
         $certificate = Get-CertificateFromHost($host)
     }
