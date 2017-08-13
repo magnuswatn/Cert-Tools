@@ -30,7 +30,7 @@ Function Get-CertificateFromHost($host) {
     try {
         $request.GetResponse().Dispose()
     } catch {
-        # Ignoring errors silently, might come of non-200 code or trust error. We only care if we got a certificate
+        # Ignoring errors silently, might come of non-200 code or trust error. We only care if we got a cert
         $error = $_
     }
 
@@ -38,7 +38,11 @@ Function Get-CertificateFromHost($host) {
     [Net.ServicePointManager]::SecurityProtocol = $oldtlsprotocols
         
     if ($request.ServicePoint.Certificate -ne $null) {
-        return New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2 -ArgumentList $request.ServicePoint.Certificate
+        $params = @{
+            "ArgumentList" = $request.ServicePoint.Certificate
+            "TypeName" = "System.Security.Cryptography.X509Certificates.X509Certificate2"
+        }
+        return New-Object @params
     } else {
         # We didn't get a certificate :-( throwing the error from the request
         throw $error
@@ -92,7 +96,8 @@ Function Open-Certificate($cert) {
 
 Function Show-CertificateInfo($id, $cert) {
     <# Prints information about a certificate #>
-    $serialnumberINT = $([bigint]::Parse($cert.GetSerialNumberString(), [System.Globalization.NumberStyles]::HexNumber))
+    $serialnumberINT = $([bigint]::Parse($cert.GetSerialNumberString(),
+                         [System.Globalization.NumberStyles]::HexNumber))
     "#####################$($id)#####################"
     "$cert"
     "[Key Usages]"
@@ -127,10 +132,12 @@ Function Get-CertFromLDAP {
     .Synopsis
        Downloads certificates from an ldap url
     .DESCRIPTION
-       Downloads certificates from an ldap url and displays relevant information, and optionally opens the certificate in the Windows certificate dialog or 
+       Downloads certificates from an ldap url and displays relevant information,
+       and optionally opens the certificate in the Windows certificate dialog or
        prints them in PEM format.
 
-       Buypass has a limit of 20 certificates, so if the query returns 20 certificates, a new search will be done with the current results excluded.
+       Buypass has a limit of 20 certificates, so if the query returns 20 certificates
+       a new search will be done with the current results excluded.
        This will repeat max five times (can be raised with MaxRetries).
 
     .EXAMPLE
@@ -189,7 +196,12 @@ Function Get-CertFromLDAP {
         throw "Unknown protocol. LDAP(S) only."
     }
 
-    $ldapConnection = New-Object System.DirectoryServices.Protocols.LdapConnection "$($ldapstring.Host):$($ldapstring.Port)"
+    $ldapConnectionParams = @{
+        "ArgumentList" = "$($ldapstring.Host):$($ldapstring.Port)"
+        "TypeName" = "System.DirectoryServices.Protocols.LdapConnection"
+    }
+
+    $ldapConnection = New-Object @ldapConnectionParams
     $ldapConnection.SessionOptions.SecureSocketLayer = $secure
     $ldapConnection.SessionOptions.ProtocolVersion = 3
     $ldapConnection.AuthType = [System.DirectoryServices.Protocols.AuthType]::Anonymous
@@ -200,20 +212,27 @@ Function Get-CertFromLDAP {
     $parsetstring = $ldapstring.query.split("?")
     $attributes = $parsetstring[1]
     if ($parsetstring[3] -ne "") {
-        $filter = [System.Uri]::UnescapeDataString($parsetstring[3]) #.NET url encodes the string automagically, so we need to decode it
+        #.NET url encodes the string automagically, so we need to decode it
+        $filter = [System.Uri]::UnescapeDataString($parsetstring[3])
     } else {
-        $filter = "(objectClass=*)" # rfc1959: If <filter> is omitted, a filter of "(objectClass=*)" is assumed.
+        # rfc1959: If <filter> is omitted, a filter of "(objectClass=*)" is assumed.
+        $filter = "(objectClass=*)"
     }
 
     switch ($parsetstring[2]) {
         "sub" { $scope = [System.DirectoryServices.Protocols.SearchScope]::Subtree }
         "one" { $scope = [System.DirectoryServices.Protocols.SearchScope]::OneLevel }
         "base" { $scope = [System.DirectoryServices.Protocols.SearchScope]::Base }
-        default { $scope = [System.DirectoryServices.Protocols.SearchScope]::Base } # rfc1959: If <scope> is omitted, a scope of "base" is assumed.
+        # rfc1959: If <scope> is omitted, a scope of "base" is assumed.
+        default { $scope = [System.DirectoryServices.Protocols.SearchScope]::Base }
     }
 
     DO {
-        $searchRequest = New-Object System.DirectoryServices.Protocols.SearchRequest -ArgumentList $basedn,$filter,$scope,$attributes
+        $searchRequestParams = @{
+            "ArgumentList" = $basedn,$filter,$scope,$attributes
+            "TypeName" = "System.DirectoryServices.Protocols.SearchRequest"
+        }
+        $searchRequest = New-Object @searchRequestParams
         $searchResponse = $ldapConnection.SendRequest($searchRequest)
 
         if ($searchResponse.Entries.Count -ne 0) {
@@ -249,13 +268,15 @@ Function Get-CertFromLDAP {
                     Open-Certificate($cert)
                 }
             } else {
-                Write-Warning "This result didn't contain any certificates. Was usercertificate;binary in the attribute list?"
+                Write-Warning ("This result didn't contain any certificates. " +
+                               "Was usercertificate;binary in the attribute list?")
             }
         }
         if ($searchResponse.Entries.Count -eq 20) {
             $retries += 1
             if ($retries -le $MaxRetries) {
-                Write-Warning "Got exactly 20 certificates from server, this may indicate an limit on the server. Will try to exclude these results and do another search"
+                Write-Warning ("Got exactly 20 certificates from server, this may indicate an limit on the " +
+                               "server. Will try to exclude these results and do another search")
                 Sleep(2)
 
                 foreach ($DN in $DNarray) {
@@ -263,7 +284,8 @@ Function Get-CertFromLDAP {
                 }
                 $filter = "(&$filter$excludedresults)"
             } else {
-                Write-Warning ("Got exactly 20 certificates from server, this may indicate an limit on the server. But will not try again, as the retry count is exceeded. " +
+                Write-Warning ("Got exactly 20 certificates from server, this may indicate an limit on the " +
+                               "server, but will not try again, as the retry count is exceeded. " +
                                "Try again with higher retry count or a more narrow filter.")
             }
         } else {
@@ -280,7 +302,8 @@ Function Submit-CertToCT {
     .Synopsis
        Submits a certificate to Certificate Transparency logs.
     .DESCRIPTION
-       Takes a certificate from a web site, or file, and submits it to a CT log. If no logs are specified, it will be submittet to the following logs:
+       Takes a certificate from a web site, or file, and submits it to a CT log. If no logs are specified,
+       it will be submittet to the following logs:
 
        Google 'Pilot' log (https://ct.googleapis.com/pilot)
        Google 'Rocketeer' log (https://ct.googleapis.com/rocketeer)
@@ -324,7 +347,8 @@ Function Submit-CertToCT {
     }
 
     $oldtlsprotocols = [Net.ServicePointManager]::SecurityProtocol
-    [Net.ServicePointManager]::SecurityProtocol = 'tls12' # if the log don't support TLSv1.2 it's not worth submitting to
+    # If the log don't support TLSv1.2 it's not worth submitting to
+    [Net.ServicePointManager]::SecurityProtocol = 'tls12'
 
     if ($log) {
         $logs = @{'user-specified' = $log }
@@ -363,8 +387,16 @@ Function Submit-CertToCT {
 
         $addurl = "$($logurl)/ct/v1/add-chain" -replace "(?<!:)\/\/", "/" # ugly hack to avoid double slashes
 
+        $params = @{
+            "Uri" = $addurl
+            "Method" = "POST"
+            "ContentType" = "application/json"
+            "Body" = (ConvertTo-Json -InputObject @{'chain'=$certchain})
+            "UserAgent" = "Cert-Tools (https://github.com/magnuswatn/cert-tools)"
+        }
+
         try {
-            $loganswer = Invoke-RestMethod -Method POST -Uri $addurl -Body (ConvertTo-Json -InputObject @{'chain'=$certchain}) -ContentType "application/json"
+            $loganswer = Invoke-RestMethod @params
         } catch {
             Write-Warning "Could not submit the cert to the log $($logurl): $($_)"
             return 
@@ -391,19 +423,23 @@ Function Get-CertFromCT {
     .Synopsis
        Gets certificates from the CT logs, via the Cert Spotter API
     .DESCRIPTION
-       Gets the certificates for the specified domain from the CT logs, via the Cert Spotter API (https://sslmate.com/certspotter)
+       Gets the certificates for the specified domain from the CT logs,
+       via the Cert Spotter API (https://sslmate.com/certspotter)
     .EXAMPLE
        Get-CertFromCT watn.no
        The information about the certificates for the domain watn.no is printed
     .EXAMPLE
        Get-CertFromCT watn.no -open
-       The information about the certificates for the domain watn.no is printed, and the certificates is opened in the Windows certificate dialog
+       The information about the certificates for the domain watn.no is printed,
+       and the certificates is opened in the Windows certificate dialog
     .EXAMPLE
        Get-CertFromCT watn.no -OpenInCrtSh
-       The information about the certificates for the domain watn.no is printed, and the certificates is showed on crt.sh
+       The information about the certificates for the domain watn.no is printed,
+       and the certificates is showed on crt.sh
     .EXAMPLE
        Get-CertFromCT watn.no -PrintPEM
-       The information about the certificates for the domain watn.no is printed, and the certificates is printed in PEM format  
+       The information about the certificates for the domain watn.no is printed,
+       and the certificates is printed in PEM format
     .INPUTS
        A domain to query
     .OUTPUTS
@@ -424,7 +460,12 @@ Function Get-CertFromCT {
     
     # TODO: add the possibility to use a Cert Spotter account
 
-    $response = Invoke-RestMethod -Uri "https://certspotter.com/api/v0/certs?domain=$($domain)&duplicate=$($IncludeDuplicate)"
+    $params = @{
+        "UserAgent" = "Cert-Tools (https://github.com/magnuswatn/cert-tools)"
+        "Uri" = "https://certspotter.com/api/v0/certs?domain=$($domain)&duplicate=$($IncludeDuplicate)"
+    }
+
+    $response = Invoke-RestMethod @params
 
     foreach ($i in $response) {
         $cert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2
@@ -642,4 +683,5 @@ Function Get-CertFromPKCS12 {
 
 #endregion
 
-Export-ModuleMember -Function Get-CertFromLDAP, Submit-CertToCT, Get-CertFromCT, Get-CertFromHost, Get-CertFromFile, Get-CertFromBase64, Get-CertFromPKCS12
+Export-ModuleMember -Function Get-CertFromLDAP, Submit-CertToCT, Get-CertFromCT, Get-CertFromHost,
+                              Get-CertFromFile, Get-CertFromBase64, Get-CertFromPKCS12
