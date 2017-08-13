@@ -443,7 +443,7 @@ Function Get-CertFromCT {
             Open-Certificate($cert)
         }
         if ($OpenInCrtSh) {
-            Start-Process "https://crt.sh/?q=$($i.sha256)"
+            Start-Process "https://crt.sh/?q=$([System.Uri]::EscapeDataString($i.sha256))"
         }
     }
 }
