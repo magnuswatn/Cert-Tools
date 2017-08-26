@@ -1,4 +1,4 @@
-<#
+﻿<#
     Some certificate tools for Powershell
 
     https://github.com/magnuswatn/cert-tools
@@ -105,7 +105,7 @@ Function Show-CertificateInfo($id, $cert) {
     "[Serial Number in INT]"
     "  $serialnumberINT `r`n"
     "[DNS names]"
-    $cert.DnsNameList.UniCode | foreach { "  $_" }
+    $cert.DnsNameList.UniCode | ForEach-Object { "  $_" }
     "`r`n[Is trusted]"
     "  $($cert.verify()) `r`n"
 }
@@ -277,7 +277,7 @@ Function Get-CertFromLDAP {
             if ($retries -le $MaxRetries) {
                 Write-Warning ("Got exactly 20 certificates from server, this may indicate an limit on the " +
                                "server. Will try to exclude these results and do another search")
-                Sleep(2)
+                Start-Sleep(2)
 
                 foreach ($DN in $DNarray) {
                     $excludedresults += "(!($DN))"
