@@ -4,7 +4,154 @@
     https://github.com/magnuswatn/cert-tools
 #>
 
+$script:signatureAlgorihtms = @{
+    "BAM=" = "ecdsa-with-SHA256" #0x0403
+    "BAE="  = "sha256WithRSAEncryption" #0x0401
+}
+
+# Created by running:
+# $knownLogs = Invoke-RestMethod https://www.gstatic.com/ct/log_list/log_list.json
+# $hash = [System.Security.Cryptography.SHA256Managed]::new()
+# $knownLogs.logs | foreach { "`"$([system.convert]::ToBase64String($hash.ComputeHash([System.Convert]::FromBase64String($_.key))))`" = `"$($_.description)`"" }
+# Last updated 2017-08-20
+$script:knownLogs = @{
+    "aPaY+B9kgr46jO65KB1M/HFRXWeT1ETRCmesu09P+8Q=" = "Google 'Aviator' log"
+    "KTxRllTIOWW6qlD8WAfUt2+/WHopctykwwz05UVH9Hg=" = "Google 'Icarus' log"
+    "pLkJkLQYWBSHuxOizGdwCjw1mAT5G9+443fNDsgN3BA=" = "Google 'Pilot' log"
+    "7ku9t3XOYLrhQmkfq+GeZqMPfl+wctiDAMR7iXqo/cs=" = "Google 'Rocketeer' log"
+    "u9nfvB+KcbWTlCOXqpJ7RzhXlQqrUugakJZkNo4e0YU=" = "Google 'Skydiver' log"
+    "VhQGmi/XwuzT9eG9RLI+x0Z2ubyZEVzA75SYVdaJ0N0=" = "DigiCert Log Server"
+    "h3W/51l8+IxDmV+9827/Vo1HVjb/SrVgwbTq/16ggw8=" = "DigiCert Log Server 2"
+    "3esdK3oNT6Ygi4GtgWhwfi6OnQHVXIiNPRHEzbbsvsw=" = "Symantec log"
+    "vHjh38X2PGhGSTNNoQ+hXwl5aSAJwIG08/aRfz7ZuKU=" = "Symantec 'Vega' log"
+    "FZcEiNe5l6Bb61JRKt7o0ui0oxZSZBIan6v71fha2T8=" = "Symantec 'Sirius' log"
+    "zbUXm3/BwEb+6jETaj+PAC5hgvr4iW/syLL1tatgSQA=" = "Certly.IO log"
+    "dGG0oJz7PUHXUVlXWy52SaRFqNJ3CbDMVkpkgrfrQaM=" = "Izenpe log"
+    "QbLcLonmPOSvG6e7Kb9oxt7m+fHMBH4w3/rjs7olkmM=" = "WoSign log"
+    "rDua7X+pZ0dXFZ5tfVdWcvnZgQCUHpve/+yhMTt1eC0=" = "Venafi log"
+    "AwGd8/2FppqOvR+sxtqbpz5Gl3T+d/V5/FoIuDKMHWs=" = "Venafi Gen2 CT log"
+    "pXesnO11SN2PAltnokEInfhuD0duwgPC7L7bGF8oJjg=" = "CNNIC CT log"
+    "NLtq1sPfnAPuqKSZ/3iRSGydXlysktAfe/0bzhnbSO8=" = "StartCom log"
+    "VYHUwhaQNgFK6gubVzxT8MDkOHhwJQgXL6OqHQcT0ww=" = "Comodo 'Sabre' CT log"
+    "b1N2rDHwMRnYmQCkURX/dxUcEdkCwQApBo2yCJo32RM=" = "Comodo 'Mammoth' CT log"
+}
+
 #region helperfunctions
+
+function Get-BigEndianArray($data, $offset, $count) {
+    <# Returns a subset of an BigEndian array as the correct endian for the system #>
+    $subArray = $data[$offset..($offset+$count-1)]
+    if([System.BitConverter]::IsLittleEndian) {
+        [System.Array]::Reverse($subArray)
+    }
+    return $subArray
+}
+
+function Get-DataFromSCTExtension($data) {
+    <# Parses an x509 extension with CT Precertificate SCTs #>
+    $offset = 0
+
+    if($data[$offset] -ne 4) {
+        throw "Expected OCTET STRING (04), got $($data[0])"
+    }
+    $offset += 1
+
+    if($data[$offset] -le 128) {
+        # short form length
+        $numberOfLengthBytes = 0
+        $innerLength = $data[$offset]
+        $offset += 1
+    } else {
+        # long form
+        $numberOfLengthBytes = $data[$offset] - 128
+        $offset += 1
+
+        # since the length can be arbitrary number of bytes (also uneven)
+        # we copy it into a 8 byte array, and convert it to an int64
+        $lengthArray = New-Object -TypeName byte[] -ArgumentList 8
+
+        [array]::Copy(
+            $data[$offset..($offset+$numberOfLengthBytes-1)],
+            0,
+            $lengthArray,
+            ($lengthArray.Length - $numberOfLengthBytes),
+            $numberOfLengthBytes
+        )
+
+        $outerLength = [System.BitConverter]::ToInt64((Get-BigEndianArray $lengthArray 0 $lengthArray.length), 0)
+        $offset += $numberOfLengthBytes
+    }
+
+    $innerLength = [System.BitConverter]::ToInt16((Get-BigEndianArray $data $offset 2), 0)
+    $offset += 2
+
+    # some sanity checks
+    if ($outerLength -ne ($data.length - $numberOfLengthBytes - 2)) {
+        throw ("Extension length ($(($data.length))) does not match the ASN1 structure length ($($outerLength)). " +
+               "This was unexpected.")
+    }
+    if ($outerLength -ne ($innerLength +2)) {
+        throw ("Length of ASN1 structure ($($outerLength)) does not match the length of the SCTs " +
+               "contained within ($($innerLength)). This was unexpected.")
+    }
+
+    $scts = @()
+    DO {
+        $length = [System.BitConverter]::ToInt16((Get-BigEndianArray $data $offset 2), 0)
+        $offset += 2
+
+        $sct = $data[$offset..($offset+$length-1)]
+        $scts += Get-DataFromSCT $sct
+        $offset += $length
+
+    } While ($offset -le $innerLength)
+
+    return $scts
+}
+
+
+function Get-DataFromSCT($data) {
+    <# Parses a Signed Certificate Timestamp #>
+    $sct = New-Object System.Object
+    $offset = 0
+
+    $version = $data[$offset]
+    if ($version -ne 0) {
+        throw "Unsupported SCT version. Expected 0, got $($version)"
+    }
+    $offset += 1
+
+    $logID = $data[$offset..($offset+31)]
+    $sct | Add-Member -type NoteProperty -Name LogID -Value $([System.Convert]::ToBase64String($logID))
+    $offset += 32
+
+    $timestamp = [System.BitConverter]::ToInt64((Get-BigEndianArray $data $offset 8), 0)
+    $sct | Add-Member -type NoteProperty -Name timestamp -Value $timestamp
+    $offset += 8
+
+    $extLength = [System.BitConverter]::ToInt16((Get-BigEndianArray $data $offset 2), 0)
+    $offset += 2
+
+    if ($extLength -gt 0) {
+        # Whoa, This SCT has extensions! This must be the future.
+        $extensions = $data[$offset..($offset+$extLength-1)]
+        $sct | Add-Member -type NoteProperty -Name Extensions -Value $extensions
+    }
+    $offset += $extLength
+
+    $sigAlgID = $data[$offset..($offset+1)]
+    $signatureAlgorithm = $signatureAlgorihtms.get_item([System.Convert]::ToBase64String($sigAlgID))
+    $sct | Add-Member -type NoteProperty -Name SignatureAlgorithm -Value $signatureAlgorithm
+    $offset += 2
+
+    $signatureLength = [System.BitConverter]::ToInt16((Get-BigEndianArray $data $offset 2), 0)
+    $offset += 2
+
+    $signature = $data[$offset..($offset+$signatureLength-1)]
+    $sct | Add-Member -type NoteProperty -Name signature -Value $signature
+
+    return $sct
+}
 
 Function Get-CertificateFromHost($host) {
     <# Gets a certificate from a host listening on TLS #>
@@ -108,6 +255,20 @@ Function Show-CertificateInfo($id, $cert) {
     $cert.DnsNameList.UniCode | ForEach-Object { "  $_" }
     "`r`n[Is trusted]"
     "  $($cert.verify()) `r`n"
+    $cert.Extensions | ForEach-Object {
+        if ($_.Oid.Value -eq "1.3.6.1.4.1.11129.2.4.2") {
+            "[CT Precertificate SCTs]"
+            Get-DataFromSCTExtension($_.RawData) | ForEach-Object {
+                $logName = ($knownLogs.get_item($_.LogID))
+                if($logName) {
+                    " $($logName)"
+                } else {
+                    " Unknown log"
+                }
+            }
+            "" # extra newline because pretty
+        }
+    }
 }
 
 Function Show-CertificateStatus($cert) {
