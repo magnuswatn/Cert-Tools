@@ -59,7 +59,7 @@ function Get-DataFromSCTExtension($data) {
     if($data[$offset] -le 128) {
         # short form length
         $numberOfLengthBytes = 0
-        $innerLength = $data[$offset]
+        $outerLength = $data[$offset]
         $offset += 1
     } else {
         # long form
