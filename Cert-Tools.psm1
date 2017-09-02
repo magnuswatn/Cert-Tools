@@ -72,7 +72,7 @@ $script:knownOIDs = @{
 
 #region helperfunctions
 
-function Get-BigEndianArray ($data, $offset, $count) {
+function ConvertBigEndianArray ($data, $offset, $count) {
     <# Returns a subset of an BigEndian array as the correct endian for the system #>
     $subArray = $data[$offset..($offset+$count-1)]
     if ([System.BitConverter]::IsLittleEndian) {
@@ -81,7 +81,7 @@ function Get-BigEndianArray ($data, $offset, $count) {
     return $subArray
 }
 
-function Get-DataFromSCTExtension ($data) {
+function ParseSCTExtension ($data) {
     <# Parses an x509 extension with CT Precertificate SCTs #>
     $offset = 0
 
@@ -90,9 +90,9 @@ function Get-DataFromSCTExtension ($data) {
     }
     $offset += 1
 
-    $outerLength, $offset, $numberOfLengthBytes = Get-ASN1Length $data $offset
+    $outerLength, $offset, $numberOfLengthBytes = DecodeASN1Length $data $offset
 
-    $innerLength = [System.BitConverter]::ToInt16((Get-BigEndianArray $data $offset 2), 0)
+    $innerLength = [System.BitConverter]::ToInt16((ConvertBigEndianArray $data $offset 2), 0)
     $offset += 2
 
     # some sanity checks
@@ -107,11 +107,11 @@ function Get-DataFromSCTExtension ($data) {
 
     $scts = @()
     DO {
-        $length = [System.BitConverter]::ToInt16((Get-BigEndianArray $data $offset 2), 0)
+        $length = [System.BitConverter]::ToInt16((ConvertBigEndianArray $data $offset 2), 0)
         $offset += 2
 
         $sct = $data[$offset..($offset+$length-1)]
-        $scts += Get-DataFromSCT $sct
+        $scts += ParseSCT $sct
         $offset += $length
 
     } While ($offset -le $innerLength)
@@ -120,7 +120,7 @@ function Get-DataFromSCTExtension ($data) {
 }
 
 
-function Get-DataFromSCT ($data) {
+function ParseSCT ($data) {
     <# Parses a Signed Certificate Timestamp #>
     $sct = New-Object System.Object
     $offset = 0
@@ -136,11 +136,11 @@ function Get-DataFromSCT ($data) {
     $sct | Add-Member -type NoteProperty -Name LogID -Value $([System.Convert]::ToBase64String($logID))
     $offset += 32
 
-    $timestamp = [System.BitConverter]::ToInt64((Get-BigEndianArray $data $offset 8), 0)
+    $timestamp = [System.BitConverter]::ToInt64((ConvertBigEndianArray $data $offset 8), 0)
     $sct | Add-Member -type NoteProperty -Name timestamp -Value $timestamp
     $offset += 8
 
-    $extLength = [System.BitConverter]::ToInt16((Get-BigEndianArray $data $offset 2), 0)
+    $extLength = [System.BitConverter]::ToInt16((ConvertBigEndianArray $data $offset 2), 0)
     $offset += 2
 
     if ($extLength -gt 0) {
@@ -155,7 +155,7 @@ function Get-DataFromSCT ($data) {
     $sct | Add-Member -type NoteProperty -Name SignatureAlgorithm -Value $signatureAlgorithm
     $offset += 2
 
-    $signatureLength = [System.BitConverter]::ToInt16((Get-BigEndianArray $data $offset 2), 0)
+    $signatureLength = [System.BitConverter]::ToInt16((ConvertBigEndianArray $data $offset 2), 0)
     $offset += 2
 
     $signature = $data[$offset..($offset+$signatureLength-1)]
@@ -164,7 +164,7 @@ function Get-DataFromSCT ($data) {
     return $sct
 }
 
-Function Get-ASN1Length ($data, $offset) {
+Function DecodeASN1Length ($data, $offset) {
     <# Decodes the ASN1 length encoding of $data, starting at $offset #>
 
     if ($data[$offset] -lt 128) {
@@ -188,14 +188,14 @@ Function Get-ASN1Length ($data, $offset) {
             ($lengthArray.Length - $numberOfLengthBytes),
             $numberOfLengthBytes
         )
-        $length = [System.BitConverter]::ToInt64((Get-BigEndianArray $lengthArray 0 $lengthArray.length), 0)
+        $length = [System.BitConverter]::ToInt64((ConvertBigEndianArray $lengthArray 0 $lengthArray.length), 0)
         $offset += $numberOfLengthBytes
     }
 
     return $length, $offset, $numberOfLengthBytes
 }
 
-Function Get-CertificatePolicies ($data) {
+Function ParseCertificatePolicies ($data) {
     <# Parses an x509 extension with Certificate Policies #>
     $offset = 0
 
@@ -204,7 +204,7 @@ Function Get-CertificatePolicies ($data) {
     }
     $offset += 1
 
-    $length, $offset, $null = Get-ASN1Length $data $offset
+    $length, $offset, $null = DecodeASN1Length $data $offset
 
     $oids = @()
     DO {
@@ -213,18 +213,18 @@ Function Get-CertificatePolicies ($data) {
         }
         $offset += 1
 
-        $oidLength, $offset, $null = Get-ASN1Length $data $offset
+        $oidLength, $offset, $null = DecodeASN1Length $data $offset
         $oidData = $data[$offset..($offset+$oidLength-1)]
         $offset += $oidLength
 
-        $oid = Get-OID($oidData)
+        $oid = ParseOID($oidData)
         $oids += $oid
     } While ($offset -le $length)
 
     return $oids
 }
 
-Function Get-OID ($data) {
+Function ParseOID ($data) {
     <# Parses an OBJECT IDENTIFIER structure and returns a base64 encoded version of the ASN1 encoded OID #>
     $offset = 0
 
@@ -233,12 +233,12 @@ Function Get-OID ($data) {
     }
     $offset += 1
 
-    $length, $offset, $null = Get-ASN1Length $data $offset
+    $length, $offset, $null = DecodeASN1Length $data $offset
 
     # There might be more data here (e.g. Policy Qualifier Info), but we only care about the OID
     return [System.Convert]::ToBase64String($data[$offset..($offset+$length-1)])
 }
-Function Get-CertificateFromHost ($host) {
+Function RetrieveCertificateFromHost ($host) {
     <# Gets a certificate from a host listening on TLS #>
     $parsedHost = $host.split(":")
 
@@ -281,7 +281,7 @@ Function Get-CertificateFromHost ($host) {
     }
 }
 
-Function Show-PEM ($certificate) {
+Function PrintPEM ($certificate) {
     <# Prints a certificate in PEM format #>
     $b64cert = [System.Convert]::ToBase64String($certificate.RawData)
     $pemcert = "-----BEGIN CERTIFICATE-----`r`n"
@@ -301,7 +301,7 @@ Function Show-PEM ($certificate) {
     "$pemcert `r`n"
 }
 
-Function Show-HEX ($data) {
+Function PrintHEX ($data) {
     <# Print base64 encoded data as HEX #>
     $hexdump = ""
     $rawdata = [System.Convert]::FromBase64String($data)
@@ -311,7 +311,7 @@ Function Show-HEX ($data) {
     return $hexdump.Substring(0,$hexdump.Length-1)
 }
 
-Function Get-CertificateFromFile ($path) {
+Function RetrieveCertificateFromFile ($path) {
     <# Loads a certificate from file #>
     $pathtocert = (Resolve-Path -Path $path).path
     $cert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2
@@ -319,14 +319,14 @@ Function Get-CertificateFromFile ($path) {
     return $cert
 }
 
-Function Open-Certificate ($cert) {
+Function OpenCertificate ($cert) {
     <# Opens a certificate in the Windows Certificate dialog #>
     $tempfil = ([System.IO.Path]::GetTempFileName() + ".cer")
     [io.file]::WriteAllBytes($tempfil, $cert.Export("cert"))
     & $tempfil
 }
 
-Function Show-CertificateInfo ($id, $cert) {
+Function PrintCertificateInfo ($id, $cert) {
     <# Prints information about a certificate #>
     $serialnumberINT = $([bigint]::Parse($cert.GetSerialNumberString(),
                          [System.Globalization.NumberStyles]::HexNumber))
@@ -343,7 +343,7 @@ Function Show-CertificateInfo ($id, $cert) {
     $cert.Extensions | ForEach-Object {
         if ($_.Oid.Value -eq "1.3.6.1.4.1.11129.2.4.2") {
             "[CT Precertificate SCTs]"
-            Get-DataFromSCTExtension($_.RawData) | ForEach-Object {
+            ParseSCTExtension($_.RawData) | ForEach-Object {
                 if (!($_.Error)) {
                     $logName = ($knownLogs.get_item($_.LogID))
                     if ($logName) {
@@ -358,7 +358,7 @@ Function Show-CertificateInfo ($id, $cert) {
             "" # extra newline because pretty
         }
         if ($_.Oid.Value -eq "2.5.29.32") {
-            Get-CertificatePolicies($_.RawData) | ForEach-Object {
+            ParseCertificatePolicies($_.RawData) | ForEach-Object {
                 $certType = $knownOIDs.get_item($_)
                 if ($certType) {
                     "[Type]"
@@ -369,7 +369,7 @@ Function Show-CertificateInfo ($id, $cert) {
     }
 }
 
-Function Show-CertificateStatus ($cert) {
+Function PrintCertificateStatus ($cert) {
     <# Prints information about the trust status of a certificate #>
     $chain = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Chain
 
@@ -517,16 +517,16 @@ Function Get-CertFromLDAP {
                     }
                 }
 
-                Show-CertificateInfo $i.DistinguishedName $cert
+                PrintCertificateInfo $i.DistinguishedName $cert
 
                 if ($Status) {
-                    Show-CertificateStatus($cert)
+                    PrintCertificateStatus($cert)
                 }
                 if ($PrintPEM) {
-                    Show-PEM($cert)
+                    PrintPEM($cert)
                 }
                 if ($open) {
-                    Open-Certificate($cert)
+                    OpenCertificate($cert)
                 }
             } else {
                 Write-Warning ("This result didn't contain any certificates. " +
@@ -618,9 +618,9 @@ Function Submit-CertToCT {
     }
 
     if ($file) {
-        $certificate = Get-CertificateFromFile($file)
+        $certificate = RetrieveCertificateFromFile($file)
     } else {
-        $certificate = Get-CertificateFromHost($host)
+        $certificate = RetrieveCertificateFromHost($host)
     }
 
     $chain = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Chain
@@ -669,7 +669,7 @@ Function Submit-CertToCT {
         "[SCT version]"
         " $($loganswer.sct_version)`r`n"
         "[Log ID]"
-        " $(Show-HEX($loganswer.id))`r`n"
+        " $(PrintHEX($loganswer.id))`r`n"
         "[Timestamp]"
         " $(Get-Date $thebegnning.AddMilliseconds($loganswer.timestamp) -format s)`r`n"
         "[Extensions]"
@@ -737,16 +737,16 @@ Function Get-CertFromCT {
         $bincert = [System.Convert]::FromBase64String($i.data)
         $cert.Import($bincert)
 
-        Show-CertificateInfo $i.sha256 $cert
+        PrintCertificateInfo $i.sha256 $cert
 
         if ($Status) {
-            Show-CertificateStatus($cert)
+            PrintCertificateStatus($cert)
         }
         if ($PrintPEM) {
-            Show-PEM($cert)
+            PrintPEM($cert)
         }
         if ($open) {
-            Open-Certificate($cert)
+            OpenCertificate($cert)
         }
         if ($OpenInCrtSh) {
             Start-Process "https://crt.sh/?q=$([System.Uri]::EscapeDataString($i.sha256))"
@@ -782,18 +782,18 @@ Function Get-CertFromHost {
 
     $ErrorActionPreference = "Stop"
 
-    $cert = Get-CertificateFromHost($host)
+    $cert = RetrieveCertificateFromHost($host)
 
-    Show-CertificateInfo $host $cert
+    PrintCertificateInfo $host $cert
 
     if ($Status) {
-        Show-CertificateStatus($cert)
+        PrintCertificateStatus($cert)
     }
     if ($PrintPEM) {
-        Show-PEM($cert)
+        PrintPEM($cert)
     }
     if ($open) {
-        Open-Certificate($cert)
+        OpenCertificate($cert)
     }
 }
 
@@ -824,18 +824,18 @@ Function Get-CertFromFile {
 
     $ErrorActionPreference = "Stop"
 
-    $cert = Get-CertificateFromFile($file)
+    $cert = RetrieveCertificateFromFile($file)
 
-    Show-CertificateInfo (Resolve-Path -Path $file).path $cert
+    PrintCertificateInfo (Resolve-Path -Path $file).path $cert
 
     if ($Status) {
-        Show-CertificateStatus($cert)
+        PrintCertificateStatus($cert)
     }
     if ($PrintPEM) {
-        Show-PEM($cert)
+        PrintPEM($cert)
     }
     if ($open) {
-        Open-Certificate($cert)
+        OpenCertificate($cert)
     }
 }
 
@@ -874,16 +874,16 @@ Function Get-CertFromBase64 {
         throw "Could not load certificate: $($_)"
     }
 
-    Show-CertificateInfo "cert" $cert
+    PrintCertificateInfo "cert" $cert
 
     if ($Status) {
-        Show-CertificateStatus($cert)
+        PrintCertificateStatus($cert)
     }
     if ($PrintPEM) {
-        Show-PEM($cert)
+        PrintPEM($cert)
     }
     if ($open) {
-        Open-Certificate($cert)
+        OpenCertificate($cert)
     }
 }
 
@@ -926,30 +926,30 @@ Function Get-CertFromPKCS12 {
 
     $certs.EndEntityCertificates | ForEach-Object {
 
-        Show-CertificateInfo $_.Subject $_
+        PrintCertificateInfo $_.Subject $_
 
         if ($Status) {
-            Show-CertificateStatus($_)
+            PrintCertificateStatus($_)
         }
         if ($PrintPEM) {
-            Show-PEM($_)
+            PrintPEM($_)
         }
         if ($open) {
-            Open-Certificate($_)
+            OpenCertificate($_)
         }
     }
 
     $certs.OtherCertificates | ForEach-Object {
-        Show-CertificateInfo $_.Subject $_
+        PrintCertificateInfo $_.Subject $_
 
         if ($Status) {
-            Show-CertificateStatus($_)
+            PrintCertificateStatus($_)
         }
         if ($PrintPEM) {
-            Show-PEM($_)
+            PrintPEM($_)
         }
         if ($open) {
-            Open-Certificate($_)
+            OpenCertificate($_)
         }
     }
 }
