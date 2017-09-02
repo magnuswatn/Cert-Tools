@@ -8,7 +8,7 @@
 
 $script:signatureAlgorihtms = @{
     "BAM=" = "ecdsa-with-SHA256" #0x0403
-    "BAE="  = "sha256WithRSAEncryption" #0x0401
+    "BAE=" = "sha256WithRSAEncryption" #0x0401
 }
 
 # Created by running:
@@ -72,20 +72,20 @@ $script:knownOIDs = @{
 
 #region helperfunctions
 
-function Get-BigEndianArray($data, $offset, $count) {
+function Get-BigEndianArray ($data, $offset, $count) {
     <# Returns a subset of an BigEndian array as the correct endian for the system #>
     $subArray = $data[$offset..($offset+$count-1)]
-    if([System.BitConverter]::IsLittleEndian) {
+    if ([System.BitConverter]::IsLittleEndian) {
         [System.Array]::Reverse($subArray)
     }
     return $subArray
 }
 
-function Get-DataFromSCTExtension($data) {
+function Get-DataFromSCTExtension ($data) {
     <# Parses an x509 extension with CT Precertificate SCTs #>
     $offset = 0
 
-    if($data[$offset] -ne 4) {
+    if ($data[$offset] -ne 4) {
         throw "Expected OCTET STRING (04), got $($data[0])"
     }
     $offset += 1
@@ -120,7 +120,7 @@ function Get-DataFromSCTExtension($data) {
 }
 
 
-function Get-DataFromSCT($data) {
+function Get-DataFromSCT ($data) {
     <# Parses a Signed Certificate Timestamp #>
     $sct = New-Object System.Object
     $offset = 0
@@ -164,10 +164,10 @@ function Get-DataFromSCT($data) {
     return $sct
 }
 
-Function Get-ASN1Length($data, $offset) {
+Function Get-ASN1Length ($data, $offset) {
     <# Decodes the ASN1 length encoding of $data, starting at $offset #>
 
-    if($data[$offset] -lt 128) {
+    if ($data[$offset] -lt 128) {
         # short form length
         $numberOfLengthBytes = 0
         $length = $data[$offset]
@@ -195,11 +195,11 @@ Function Get-ASN1Length($data, $offset) {
     return $length, $offset, $numberOfLengthBytes
 }
 
-Function Get-CertificatePolicies($data) {
+Function Get-CertificatePolicies ($data) {
     <# Parses an x509 extension with Certificate Policies #>
     $offset = 0
 
-    if($data[$offset] -ne 48) {
+    if ($data[$offset] -ne 48) {
         throw "Expected SEQUENCE (48), got $($data[0])"
     }
     $offset += 1
@@ -208,7 +208,7 @@ Function Get-CertificatePolicies($data) {
 
     $oids = @()
     DO {
-        if($data[$offset] -ne 48) {
+        if ($data[$offset] -ne 48) {
             throw "Expected SEQUENCE (48), got $($data[$offset])"
         }
         $offset += 1
@@ -224,11 +224,11 @@ Function Get-CertificatePolicies($data) {
     return $oids
 }
 
-Function Get-OID($data) {
+Function Get-OID ($data) {
     <# Parses an OBJECT IDENTIFIER structure and returns a base64 encoded version of the ASN1 encoded OID #>
     $offset = 0
 
-    if($data[$offset] -ne 6) {
+    if ($data[$offset] -ne 6) {
         throw "Expected OBJECT IDENTIFIER (6), got $($data[$offset])"
     }
     $offset += 1
@@ -238,7 +238,7 @@ Function Get-OID($data) {
     # There might be more data here (e.g. Policy Qualifier Info), but we only care about the OID
     return [System.Convert]::ToBase64String($data[$offset..($offset+$length-1)])
 }
-Function Get-CertificateFromHost($host) {
+Function Get-CertificateFromHost ($host) {
     <# Gets a certificate from a host listening on TLS #>
     $parsedHost = $host.split(":")
 
@@ -281,13 +281,13 @@ Function Get-CertificateFromHost($host) {
     }
 }
 
-Function Show-PEM($certificate) {
+Function Show-PEM ($certificate) {
     <# Prints a certificate in PEM format #>
     $b64cert = [System.Convert]::ToBase64String($certificate.RawData)
     $pemcert = "-----BEGIN CERTIFICATE-----`r`n"
     $i = 0
     foreach($char in $b64cert.ToCharArray()) {
-        if($i -eq 64){ 
+        if ($i -eq 64){
             $pemcert += "`r`n$char" 
             $i = 0
         } else { 
@@ -301,32 +301,32 @@ Function Show-PEM($certificate) {
     "$pemcert `r`n"
 }
 
-Function Show-HEX($data) {
+Function Show-HEX ($data) {
     <# Print base64 encoded data as HEX #>
-    $hexdump=""
+    $hexdump = ""
     $rawdata = [System.Convert]::FromBase64String($data)
     foreach($byte in $rawdata) {
-        $hexdump+="{0:X2}:" -f $byte
+        $hexdump += "{0:X2}:" -f $byte
     }
     return $hexdump.Substring(0,$hexdump.Length-1)
 }
 
-Function Get-CertificateFromFile($path) {
+Function Get-CertificateFromFile ($path) {
     <# Loads a certificate from file #>
-    $pathtocert=(Resolve-Path -Path $path).path
+    $pathtocert = (Resolve-Path -Path $path).path
     $cert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2
     $cert.Import($pathtocert)
     return $cert
 }
 
-Function Open-Certificate($cert) {
+Function Open-Certificate ($cert) {
     <# Opens a certificate in the Windows Certificate dialog #>
     $tempfil = ([System.IO.Path]::GetTempFileName() + ".cer")
     [io.file]::WriteAllBytes($tempfil, $cert.Export("cert"))
     & $tempfil
 }
 
-Function Show-CertificateInfo($id, $cert) {
+Function Show-CertificateInfo ($id, $cert) {
     <# Prints information about a certificate #>
     $serialnumberINT = $([bigint]::Parse($cert.GetSerialNumberString(),
                          [System.Globalization.NumberStyles]::HexNumber))
@@ -346,7 +346,7 @@ Function Show-CertificateInfo($id, $cert) {
             Get-DataFromSCTExtension($_.RawData) | ForEach-Object {
                 if (!($_.Error)) {
                     $logName = ($knownLogs.get_item($_.LogID))
-                    if($logName) {
+                    if ($logName) {
                         "  $($logName)"
                     } else {
                         "  Unknown log"
@@ -360,7 +360,7 @@ Function Show-CertificateInfo($id, $cert) {
         if ($_.Oid.Value -eq "2.5.29.32") {
             Get-CertificatePolicies($_.RawData) | ForEach-Object {
                 $certType = $knownOIDs.get_item($_)
-                if($certType) {
+                if ($certType) {
                     "[Type]"
                     "  $($certType)`r`n"
                 }
@@ -369,12 +369,12 @@ Function Show-CertificateInfo($id, $cert) {
     }
 }
 
-Function Show-CertificateStatus($cert) {
+Function Show-CertificateStatus ($cert) {
     <# Prints information about the trust status of a certificate #>
     $chain = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Chain
 
     "[Certificate status]"
-    if($chain.Build($cert)) {
+    if ($chain.Build($cert)) {
         "  OK`r`n"
     } else {
         "  $($chain.ChainStatus.StatusInformation)`r`n"
@@ -437,12 +437,14 @@ Function Get-CertFromLDAP {
             ldap://ldap.test.commfides.com/ou=Enterprise,dc=commfides,dc=com?usercertificate;binary?sub?(serialNumber=988312495)
     #>
     [cmdletbinding()]
-    Param([Parameter(mandatory=$true)][System.Uri]$ldapstring,
-          [Parameter(mandatory=$false)][Switch]$Open,
-          [Parameter(mandatory=$false)][Switch]$PrintPEM,
-          [Parameter(mandatory=$false)][Switch]$Status,
-          [Parameter(mandatory=$false)][Switch]$OnlyValid,
-          [Parameter(mandatory=$false)][Int]$MaxRetries=5)
+    Param (
+        [Parameter(mandatory=$true)][System.Uri]$ldapstring,
+        [Parameter(mandatory=$false)][Switch]$Open,
+        [Parameter(mandatory=$false)][Switch]$PrintPEM,
+        [Parameter(mandatory=$false)][Switch]$Status,
+        [Parameter(mandatory=$false)][Switch]$OnlyValid,
+        [Parameter(mandatory=$false)][Int]$MaxRetries=5
+    )
     
     $ErrorActionPreference = "Stop"
     Add-Type -AssemblyName System.DirectoryServices.Protocols
@@ -590,9 +592,11 @@ Function Submit-CertToCT {
        See RFC 6962 for more information about Certificate Transparency.
     #>
     [cmdletbinding()]
-    Param([Parameter(ParameterSetName='fromHost')][System.String]$host,
-          [Parameter(ParameterSetName='fromFile')][System.String]$file,
-          [Parameter(mandatory=$false)][System.Uri]$log)
+    Param (
+        [Parameter(ParameterSetName='fromHost')][System.String]$host,
+        [Parameter(ParameterSetName='fromFile')][System.String]$file,
+        [Parameter(mandatory=$false)][System.Uri]$log
+    )
 
     $ErrorActionPreference = "Stop"
 
@@ -625,11 +629,11 @@ Function Submit-CertToCT {
     # Not something that should be copied without understanding what it does
     $chain.ChainPolicy.RevocationMode = 'NoCheck'
 
-    if(!($chain.Build($certificate))) {
+    if (!($chain.Build($certificate))) {
         throw $chain.ChainStatus.StatusInformation
     }
 
-    $certchain= @()
+    $certchain = @()
     $numberinchain = 1
     $chain.ChainElements | ForEach-Object `
     {
@@ -707,13 +711,15 @@ Function Get-CertFromCT {
        See RFC 6962 for more information about Certificate Transparency.
     #>
     [cmdletbinding()]
-    Param([Parameter(mandatory=$true)][String]$domain,
-          [Parameter(mandatory=$false)][Switch]$Open,
-          [Parameter(mandatory=$false)][Switch]$PrintPEM,
-          [Parameter(mandatory=$false)][Switch]$Status,
-          [Parameter(mandatory=$false)][Switch]$OnlyValid,
-          [Parameter(mandatory=$false)][Switch]$IncludeDuplicate,
-          [Parameter(mandatory=$false)][Switch]$OpenInCrtSh)
+    Param (
+        [Parameter(mandatory=$true)][String]$domain,
+        [Parameter(mandatory=$false)][Switch]$Open,
+        [Parameter(mandatory=$false)][Switch]$PrintPEM,
+        [Parameter(mandatory=$false)][Switch]$Status,
+        [Parameter(mandatory=$false)][Switch]$OnlyValid,
+        [Parameter(mandatory=$false)][Switch]$IncludeDuplicate,
+        [Parameter(mandatory=$false)][Switch]$OpenInCrtSh
+    )
     
     $ErrorActionPreference = "Stop"
     
@@ -767,10 +773,12 @@ Function Get-CertFromHost {
        Information about the certificate
     #>
     [cmdletbinding()]
-    Param([Parameter(mandatory=$true)][String]$host,
-          [Parameter(mandatory=$false)][Switch]$Open,
-          [Parameter(mandatory=$false)][Switch]$PrintPEM,
-          [Parameter(mandatory=$false)][Switch]$Status)
+    Param (
+        [Parameter(mandatory=$true)][String]$host,
+        [Parameter(mandatory=$false)][Switch]$Open,
+        [Parameter(mandatory=$false)][Switch]$PrintPEM,
+        [Parameter(mandatory=$false)][Switch]$Status
+    )
 
     $ErrorActionPreference = "Stop"
 
@@ -807,10 +815,12 @@ Function Get-CertFromFile {
        Information about the certificate
     #>
     [cmdletbinding()]
-    Param([Parameter(mandatory=$true)][String]$file,
-          [Parameter(mandatory=$false)][Switch]$Open,
-          [Parameter(mandatory=$false)][Switch]$PrintPEM,
-          [Parameter(mandatory=$false)][Switch]$Status)
+    Param (
+        [Parameter(mandatory=$true)][String]$file,
+        [Parameter(mandatory=$false)][Switch]$Open,
+        [Parameter(mandatory=$false)][Switch]$PrintPEM,
+        [Parameter(mandatory=$false)][Switch]$Status
+    )
 
     $ErrorActionPreference = "Stop"
 
@@ -847,10 +857,12 @@ Function Get-CertFromBase64 {
        Information about the certificate
     #>
     [cmdletbinding()]
-    Param([Parameter(mandatory=$true)][String]$string,
-          [Parameter(mandatory=$false)][Switch]$Open,
-          [Parameter(mandatory=$false)][Switch]$PrintPEM,
-          [Parameter(mandatory=$false)][Switch]$Status)
+    Param (
+        [Parameter(mandatory=$true)][String]$string,
+        [Parameter(mandatory=$false)][Switch]$Open,
+        [Parameter(mandatory=$false)][Switch]$PrintPEM,
+        [Parameter(mandatory=$false)][Switch]$Status
+    )
 
     $ErrorActionPreference = "Stop"
 
@@ -894,11 +906,13 @@ Function Get-CertFromPKCS12 {
        Information about the certificate(s)
     #>
     [cmdletbinding()]
-    Param([Parameter(mandatory=$true)][String]$file,
-          [Parameter(mandatory=$false)][String]$password,
-          [Parameter(mandatory=$false)][Switch]$Open,
-          [Parameter(mandatory=$false)][Switch]$PrintPEM,
-          [Parameter(mandatory=$false)][Switch]$Status)
+    Param (
+        [Parameter(mandatory=$true)][String]$file,
+        [Parameter(mandatory=$false)][String]$password,
+        [Parameter(mandatory=$false)][Switch]$Open,
+        [Parameter(mandatory=$false)][Switch]$PrintPEM,
+        [Parameter(mandatory=$false)][Switch]$Status
+    )
 
     $ErrorActionPreference = "Stop"
 
