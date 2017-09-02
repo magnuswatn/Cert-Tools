@@ -345,9 +345,9 @@ Function Show-CertificateInfo($id, $cert) {
             Get-DataFromSCTExtension($_.RawData) | ForEach-Object {
                 $logName = ($knownLogs.get_item($_.LogID))
                 if($logName) {
-                    " $($logName)"
+                    "  $($logName)"
                 } else {
-                    " Unknown log"
+                    "  Unknown log"
                 }
             }
             "" # extra newline because pretty
