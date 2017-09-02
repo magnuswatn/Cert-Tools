@@ -127,7 +127,8 @@ function Get-DataFromSCT($data) {
 
     $version = $data[$offset]
     if ($version -ne 0) {
-        throw "Unsupported SCT version. Expected 0, got $($version)"
+        $sct | Add-Member -type NoteProperty -Name Error -Value "Unsupported SCT version"
+        return $sct
     }
     $offset += 1
 
@@ -343,11 +344,15 @@ Function Show-CertificateInfo($id, $cert) {
         if ($_.Oid.Value -eq "1.3.6.1.4.1.11129.2.4.2") {
             "[CT Precertificate SCTs]"
             Get-DataFromSCTExtension($_.RawData) | ForEach-Object {
-                $logName = ($knownLogs.get_item($_.LogID))
-                if($logName) {
-                    "  $($logName)"
+                if (!($_.Error)) {
+                    $logName = ($knownLogs.get_item($_.LogID))
+                    if($logName) {
+                        "  $($logName)"
+                    } else {
+                        "  Unknown log"
+                    }
                 } else {
-                    "  Unknown log"
+                    "  $($_.Error)"
                 }
             }
             "" # extra newline because pretty
