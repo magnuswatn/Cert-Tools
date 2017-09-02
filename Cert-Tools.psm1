@@ -4,6 +4,8 @@
     https://github.com/magnuswatn/cert-tools
 #>
 
+#region scriptvariables
+
 $script:signatureAlgorihtms = @{
     "BAM=" = "ecdsa-with-SHA256" #0x0403
     "BAE="  = "sha256WithRSAEncryption" #0x0401
@@ -36,6 +38,38 @@ $script:knownLogs = @{
     "b1N2rDHwMRnYmQCkURX/dxUcEdkCwQApBo2yCJo32RM=" = "Comodo 'Mammoth' CT log"
 }
 
+# Base64 encoded versions of ASN1 encoded OIDs
+$script:knownOIDs = @{
+    # 2.23.140.1.1
+    "Z4EMAQE="  = "Extended validation TLS certificate"
+    # 2.23.140.1.2.1
+    "Z4EMAQIB" = "Domain validated TLS certificate"
+    # 2.23.140.1.2.2
+    "Z4EMAQIC" = "Organization validated TLS certificate"
+    # 2.16.578.1.26.1.3.2
+    "YIRCARoBAwI=" = "Buypass Enterprise certificate"
+    # 2.16.578.1.26.1.3.1
+    "YIRCARoBAwE=" = "Buypass Person-High certificate"
+    # 2.16.578.1.26.1.0.3.2
+    "YIRCARoBAAMC" = "Buypass TEST4 Enterprise certificate"
+    # 2.16.578.1.26.1.0
+    "YIRCARoBAA==" = "Buypass TEST4 Person-High certificate"
+    # 2.16.578.1.29.12.1.1.0
+    "YIRCAR0MAQEA" = "Commfides Person-High certificate"
+    # 2.16.578.1.29.12.1.1.1
+    "YIRCAR0MAQEB" = "Commfides Person-High certificate"
+    # 2.16.578.1.29.13.1.1.0
+    "YIRCAR0NAQEA" = "Commfides Enterprise certificate"
+    # 2.16.578.1.29.912.1.1.0
+    "YIRCAR2HEAEBAA==" = "Commfides TEST Person-High certificate"
+    # 2.16.578.1.29.912.1.1.1
+    "YIRCAR2HEAEBAQ==" = "Commfides TEST Person-High certificate"
+    # 2.16.578.1.29.913.1.1.0
+    "YIRCAR2HEQEBAA==" = "Commfides TEST Enterprise certificate"
+}
+
+#endregion
+
 #region helperfunctions
 
 function Get-BigEndianArray($data, $offset, $count) {
@@ -56,31 +90,7 @@ function Get-DataFromSCTExtension($data) {
     }
     $offset += 1
 
-    if($data[$offset] -le 128) {
-        # short form length
-        $numberOfLengthBytes = 0
-        $outerLength = $data[$offset]
-        $offset += 1
-    } else {
-        # long form
-        $numberOfLengthBytes = $data[$offset] - 128
-        $offset += 1
-
-        # since the length can be arbitrary number of bytes (also uneven)
-        # we copy it into a 8 byte array, and convert it to an int64
-        $lengthArray = New-Object -TypeName byte[] -ArgumentList 8
-
-        [array]::Copy(
-            $data[$offset..($offset+$numberOfLengthBytes-1)],
-            0,
-            $lengthArray,
-            ($lengthArray.Length - $numberOfLengthBytes),
-            $numberOfLengthBytes
-        )
-
-        $outerLength = [System.BitConverter]::ToInt64((Get-BigEndianArray $lengthArray 0 $lengthArray.length), 0)
-        $offset += $numberOfLengthBytes
-    }
+    $outerLength, $offset, $numberOfLengthBytes = Get-ASN1Length $data $offset
 
     $innerLength = [System.BitConverter]::ToInt16((Get-BigEndianArray $data $offset 2), 0)
     $offset += 2
@@ -153,6 +163,80 @@ function Get-DataFromSCT($data) {
     return $sct
 }
 
+Function Get-ASN1Length($data, $offset) {
+    <# Decodes the ASN1 length encoding of $data, starting at $offset #>
+
+    if($data[$offset] -lt 128) {
+        # short form length
+        $numberOfLengthBytes = 0
+        $length = $data[$offset]
+        $offset += 1
+    } else {
+        # long form
+        $numberOfLengthBytes = $data[$offset] - 128
+        $offset += 1
+
+        # since the length can be arbitrary number of bytes (also uneven)
+        # we copy it into a 8 byte array, and convert it to an int64
+        $lengthArray = New-Object -TypeName byte[] -ArgumentList 8
+
+        [array]::Copy(
+            $data[$offset..($offset+$numberOfLengthBytes-1)],
+            0,
+            $lengthArray,
+            ($lengthArray.Length - $numberOfLengthBytes),
+            $numberOfLengthBytes
+        )
+        $length = [System.BitConverter]::ToInt64((Get-BigEndianArray $lengthArray 0 $lengthArray.length), 0)
+        $offset += $numberOfLengthBytes
+    }
+
+    return $length, $offset, $numberOfLengthBytes
+}
+
+Function Get-CertificatePolicies($data) {
+    <# Parses an x509 extension with Certificate Policies #>
+    $offset = 0
+
+    if($data[$offset] -ne 48) {
+        throw "Expected SEQUENCE (48), got $($data[0])"
+    }
+    $offset += 1
+
+    $length, $offset, $null = Get-ASN1Length $data $offset
+
+    $oids = @()
+    DO {
+        if($data[$offset] -ne 48) {
+            throw "Expected SEQUENCE (48), got $($data[$offset])"
+        }
+        $offset += 1
+
+        $oidLength, $offset, $null = Get-ASN1Length $data $offset
+        $oidData = $data[$offset..($offset+$oidLength-1)]
+        $offset += $oidLength
+
+        $oid = Get-OID($oidData)
+        $oids += $oid
+    } While ($offset -le $length)
+
+    return $oids
+}
+
+Function Get-OID($data) {
+    <# Parses an OBJECT IDENTIFIER structure and returns a base64 encoded version of the ASN1 encoded OID #>
+    $offset = 0
+
+    if($data[$offset] -ne 6) {
+        throw "Expected OBJECT IDENTIFIER (6), got $($data[$offset])"
+    }
+    $offset += 1
+
+    $length, $offset, $null = Get-ASN1Length $data $offset
+
+    # There might be more data here (e.g. Policy Qualifier Info), but we only care about the OID
+    return [System.Convert]::ToBase64String($data[$offset..($offset+$length-1)])
+}
 Function Get-CertificateFromHost($host) {
     <# Gets a certificate from a host listening on TLS #>
     $parsedHost = $host.split(":")
@@ -267,6 +351,15 @@ Function Show-CertificateInfo($id, $cert) {
                 }
             }
             "" # extra newline because pretty
+        }
+        if ($_.Oid.Value -eq "2.5.29.32") {
+            Get-CertificatePolicies($_.RawData) | ForEach-Object {
+                $certType = $knownOIDs.get_item($_)
+                if($certType) {
+                    "[Type]"
+                    "  $($certType)`r`n"
+                }
+            }
         }
     }
 }
