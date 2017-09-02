@@ -893,6 +893,9 @@ Function Get-CertFromPKCS12 {
        Shows information about certificates from a pkcs12 keystore.
     .DESCRIPTION
         Lists out all the certificates in a pkcs12 keystore.
+
+        Be aware! It is recommended not to supply the passowrd on the command line,
+        but instead enter it when asked.
     .EXAMPLE
        Get-CertFromPKCS12 .\pkcs12file.pfx -password passw0rd
        Displays information about the certificates in the pkcs12file.pfx file
