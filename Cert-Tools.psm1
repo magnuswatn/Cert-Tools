@@ -607,7 +607,8 @@ Function Submit-CertToCT {
 
        Google 'Pilot' log (https://ct.googleapis.com/pilot)
        Google 'Rocketeer' log (https://ct.googleapis.com/rocketeer)
-       Comodo Dodo (https://dodo.ct.comodo.com)
+       Venafi Gen2 CT log (https://ctlog-gen2.api.venafi.com)
+       DigiCert Log Server 2 (https://ctlog-gen2.api.venafi.com)
        Comodo Mammoth (https://mammoth.ct.comodo.com)
        Comodo Sabre (https://sabre.ct.comodo.com)
 
@@ -647,11 +648,12 @@ Function Submit-CertToCT {
 
     $ErrorActionPreference = "Stop"
 
-    # Default logs (<3 Comodo and Google)
+    # Default logs
     $logs = @{
         'google-pilot' = [System.Uri]"https://ct.googleapis.com/pilot";
         'google-rocketeer' = [System.Uri]"https://ct.googleapis.com/rocketeer";
-        'comodo-dodo' = [System.Uri]"https://dodo.ct.comodo.com";
+        'digicert-logserver2' = [System.Uri]"https://ct2.digicert-ct.com/log";
+        'venafi-gen2' = [System.Uri]"https://ctlog-gen2.api.venafi.com";
         'comodo-mammoth' = [System.Uri]"https://mammoth.ct.comodo.com";
         'comodo-sabre' = [System.Uri]"https://sabre.ct.comodo.com";
     }
