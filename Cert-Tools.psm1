@@ -100,7 +100,7 @@ function ParseSCTExtension ($data) {
 
     $outerLength, $offset, $numberOfLengthBytes = DecodeASN1Length $data $offset
 
-    $innerLength = [System.BitConverter]::ToInt16((ConvertBigEndianArray $data $offset 2), 0)
+    $innerLength = [System.BitConverter]::ToUInt16((ConvertBigEndianArray $data $offset 2), 0)
     $offset += 2
 
     # some sanity checks
@@ -115,7 +115,7 @@ function ParseSCTExtension ($data) {
 
     $scts = @()
     DO {
-        $length = [System.BitConverter]::ToInt16((ConvertBigEndianArray $data $offset 2), 0)
+        $length = [System.BitConverter]::ToUInt16((ConvertBigEndianArray $data $offset 2), 0)
         $offset += 2
 
         $sct = $data[$offset..($offset+$length-1)]
@@ -144,11 +144,11 @@ function ParseSCT ($data) {
     $sct | Add-Member -type NoteProperty -Name LogID -Value $([System.Convert]::ToBase64String($logID))
     $offset += 32
 
-    $timestamp = [System.BitConverter]::ToInt64((ConvertBigEndianArray $data $offset 8), 0)
+    $timestamp = [System.BitConverter]::ToUInt64((ConvertBigEndianArray $data $offset 8), 0)
     $sct | Add-Member -type NoteProperty -Name timestamp -Value $timestamp
     $offset += 8
 
-    $extLength = [System.BitConverter]::ToInt16((ConvertBigEndianArray $data $offset 2), 0)
+    $extLength = [System.BitConverter]::ToUInt16((ConvertBigEndianArray $data $offset 2), 0)
     $offset += 2
 
     if ($extLength -gt 0) {
@@ -163,7 +163,7 @@ function ParseSCT ($data) {
     $sct | Add-Member -type NoteProperty -Name SignatureAlgorithm -Value $signatureAlgorithm
     $offset += 2
 
-    $signatureLength = [System.BitConverter]::ToInt16((ConvertBigEndianArray $data $offset 2), 0)
+    $signatureLength = [System.BitConverter]::ToUInt16((ConvertBigEndianArray $data $offset 2), 0)
     $offset += 2
 
     $signature = $data[$offset..($offset+$signatureLength-1)]
@@ -178,10 +178,10 @@ function CreateSCT ($response) {
     [byte[]]$response.sct_version
 
     $sct += [System.Convert]::FromBase64String($response.id)
-    $sct += CreateBigEndianArray([System.BitConverter]::GetBytes([int64]$response.timestamp))
+    $sct += CreateBigEndianArray([System.BitConverter]::GetBytes([uint64]$response.timestamp))
 
     $decodedExtensions = [System.Convert]::FromBase64String($response.extensions)
-    $sct += CreateBigEndianArray([System.BitConverter]::GetBytes([int16]$decodedExtensions.length))
+    $sct += CreateBigEndianArray([System.BitConverter]::GetBytes([uint16]$decodedExtensions.length))
     $sct += $decodedExtensions
 
     $sct += [System.Convert]::FromBase64String($response.signature)
@@ -194,10 +194,10 @@ function CreateSCTList ($scts) {
 
     [byte[]]$sctList
     $scts | ForEach-Object {
-        $sctList += CreateBigEndianArray([System.BitConverter]::GetBytes([int16]$_.Length))
+        $sctList += CreateBigEndianArray([System.BitConverter]::GetBytes([uint16]$_.Length))
         $sctList += $_
     }
-    $length = CreateBigEndianArray([System.BitConverter]::GetBytes([int16]$sctList.length))
+    $length = CreateBigEndianArray([System.BitConverter]::GetBytes([uint16]$sctList.length))
 
     return [System.Convert]::ToBase64String($length + $sctList)
 }
@@ -226,7 +226,7 @@ Function DecodeASN1Length ($data, $offset) {
             ($lengthArray.Length - $numberOfLengthBytes),
             $numberOfLengthBytes
         )
-        $length = [System.BitConverter]::ToInt64((ConvertBigEndianArray $lengthArray 0 $lengthArray.length), 0)
+        $length = [System.BitConverter]::ToUInt64((ConvertBigEndianArray $lengthArray 0 $lengthArray.length), 0)
         $offset += $numberOfLengthBytes
     }
 
