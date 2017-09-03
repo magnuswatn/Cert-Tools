@@ -1,6 +1,6 @@
 Cert-Tools
 =====
-Some handy cmdlets for working with certificates.
+Some handy cmdlets for working with certificates and Certificate Transparency.
 
 ## cmdlets
 
@@ -32,4 +32,4 @@ Displays information about certificates in a PKCS12 keystore
 
 **Submit-CertToCT**
 
-Submits a certificate to Certificate Transparency logs.
+Submits a certificate to Certificate Transparency logs and outputs a SCT list with the responses.

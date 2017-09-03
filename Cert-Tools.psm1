@@ -81,6 +81,14 @@ function ConvertBigEndianArray ($data, $offset, $count) {
     return $subArray
 }
 
+function CreateBigEndianArray($data) {
+    <# Creates an BigEndian array from an array with the system endian #>
+    if([System.BitConverter]::IsLittleEndian) {
+        [System.Array]::Reverse($data)
+    }
+    return $data
+}
+
 function ParseSCTExtension ($data) {
     <# Parses an x509 extension with CT Precertificate SCTs #>
     $offset = 0
@@ -164,6 +172,36 @@ function ParseSCT ($data) {
     return $sct
 }
 
+function CreateSCT ($response) {
+    <# Creates an SCT out of the response from a log submission #>
+
+    [byte[]]$response.sct_version
+
+    $sct += [System.Convert]::FromBase64String($response.id)
+    $sct += CreateBigEndianArray([System.BitConverter]::GetBytes([int64]$response.timestamp))
+
+    $decodedExtensions = [System.Convert]::FromBase64String($response.extensions)
+    $sct += CreateBigEndianArray([System.BitConverter]::GetBytes([int16]$decodedExtensions.length))
+    $sct += $decodedExtensions
+
+    $sct += [System.Convert]::FromBase64String($response.signature)
+
+    return $sct
+}
+
+function CreateSCTList ($scts) {
+    <# Creates an SCT list out of serveral SCTs #>
+
+    [byte[]]$sctList
+    $scts | ForEach-Object {
+        $sctList += CreateBigEndianArray([System.BitConverter]::GetBytes([int16]$_.Length))
+        $sctList += $_
+    }
+    $length = CreateBigEndianArray([System.BitConverter]::GetBytes([int16]$sctList.length))
+
+    return [System.Convert]::ToBase64String($length + $sctList)
+}
+
 Function DecodeASN1Length ($data, $offset) {
     <# Decodes the ASN1 length encoding of $data, starting at $offset #>
 
@@ -238,6 +276,7 @@ Function ParseOID ($data) {
     # There might be more data here (e.g. Policy Qualifier Info), but we only care about the OID
     return [System.Convert]::ToBase64String($data[$offset..($offset+$length-1)])
 }
+
 Function RetrieveCertificateFromHost ($host) {
     <# Gets a certificate from a host listening on TLS #>
     $parsedHost = $host.split(":")
@@ -563,8 +602,8 @@ Function Submit-CertToCT {
     .Synopsis
        Submits a certificate to Certificate Transparency logs.
     .DESCRIPTION
-       Takes a certificate from a web site, or file, and submits it to a CT log. If no logs are specified,
-       it will be submittet to the following logs:
+       Takes a certificate from a TLS enabled host, or file, and submits it to CT logs. If no logs are specified,
+       it will be submitted to the following logs:
 
        Google 'Pilot' log (https://ct.googleapis.com/pilot)
        Google 'Rocketeer' log (https://ct.googleapis.com/rocketeer)
@@ -572,55 +611,66 @@ Function Submit-CertToCT {
        Comodo Mammoth (https://mammoth.ct.comodo.com)
        Comodo Sabre (https://sabre.ct.comodo.com)
 
+       A SCT list with the responses from the logs are also genereated.
+       This can be usedful for configuring TLS servers that support the CT TLS extension.
     .EXAMPLE
-       Submit-CertToCT -url https://example.com
-       Get the certificate from example.com and submit it to the default logs
+       Submit-CertToCT example.com
+       Get the certificate from port 443 on example.com and submit it to the default logs
     .EXAMPLE
-       Submit-CertToCT -url https://example.com -log https://ct.googleapis.com/pilot
-       Get the certificate from example.com and submit it to Googles PILOT log
+       Submit-CertToCT example.com:8443 -log https://ct.googleapis.com/pilot
+       Get the certificate from port 8443 on example.com and submit it to Google 'Pilot' log
     .EXAMPLE
-       Submit-CertToCT -file ./cert.cer
-       Submit the specified certificate to the default logs
+       Submit-CertToCT ./cert.cer
+       Submit the certificate from the specified file to the default logs
     .EXAMPLE
-       Submit-CertToCT -file ./cert.cer -log https://ct.googleapis.com/pilot
-       Submit the specified certificate to the Google PILOT log
+       Submit-CertToCT ./cert.cer -count 2
+       Submit the specified certificate to two of the default logs.
+       This will always be at least one Google log and one non-Google log, to match the Chrome CT requirement
     .INPUTS
-       A certificate, or a URL presenting a certificate, and optionally a URL to an CT log
+       A certificate, or a TLS enabled host, and optionally URLs to one or more to CT log(s)
     .OUTPUTS
-       The response from the logs
+       The response from the logs and a base64 encoded sct list with all the responses
     .NOTES
        See RFC 6962 for more information about Certificate Transparency.
     #>
     [cmdletbinding()]
     Param (
-        [Parameter(ParameterSetName='fromHost')][System.String]$host,
-        [Parameter(ParameterSetName='fromFile')][System.String]$file,
-        [Parameter(mandatory=$false)][System.Uri]$log
+        # The source to retrieve the certificate from. Can either be a file or a hostname (and optionally a port)
+        [Parameter(mandatory=$true)][System.String]$source,
+        # The log to submit to. Can be a comma separated list over several logs.
+        # If not supplied the default logs will be used
+        [Parameter(mandatory=$false)][System.String]$log,
+        # The number of logs to submit to. Is only supported with the built in list of logs.
+        # Is primarily useful for limiting the size of the SCT list.
+        [Parameter(mandatory=$false)][int]$count
     )
 
     $ErrorActionPreference = "Stop"
 
-    # Default logs
+    # Default logs (<3 Comodo and Google)
     $logs = @{
-        'pilot' =     [System.Uri]"https://ct.googleapis.com/pilot";
-        'rocketeer' = [System.Uri]"https://ct.googleapis.com/rocketeer";
+        'google-pilot' = [System.Uri]"https://ct.googleapis.com/pilot";
+        'google-rocketeer' = [System.Uri]"https://ct.googleapis.com/rocketeer";
         'comodo-dodo' = [System.Uri]"https://dodo.ct.comodo.com";
         'comodo-mammoth' = [System.Uri]"https://mammoth.ct.comodo.com";
         'comodo-sabre' = [System.Uri]"https://sabre.ct.comodo.com";
     }
 
+    # If the log doesn't support TLSv1.2 it's not worth submitting to
     $oldtlsprotocols = [Net.ServicePointManager]::SecurityProtocol
-    # If the log don't support TLSv1.2 it's not worth submitting to
     [Net.ServicePointManager]::SecurityProtocol = 'tls12'
 
     if ($log) {
-        $logs = @{'user-specified' = $log }
+        $logs = @{}
+        $log.split(",") | ForEach-Object {
+            $logs += @{[System.Guid]::NewGuid() = [System.Uri]$_ }
+        }
     }
 
-    if ($file) {
-        $certificate = RetrieveCertificateFromFile($file)
-    } else {
-        $certificate = RetrieveCertificateFromHost($host)
+    try {
+        $certificate = RetrieveCertificateFromFile($source)
+    } catch {
+        $certificate = RetrieveCertificateFromHost($source)
     }
 
     $chain = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Chain
@@ -633,50 +683,72 @@ Function Submit-CertToCT {
         throw $chain.ChainStatus.StatusInformation
     }
 
-    $certchain = @()
-    $numberinchain = 1
-    $chain.ChainElements | ForEach-Object `
-    {
-        "Certificate number $numberinchain in the chain is issued to: $($_.Certificate.Subject)"
-        $certchain += [System.Convert]::ToBase64String($_.Certificate.GetRawCertData())
-        $numberinchain += 1
+    $certChain = @()
+    $numberInChain = 1
+    $chain.ChainElements | ForEach-Object {
+        "Certificate number $($numberInChain) in the chain is issued to: $($_.Certificate.Subject)"
+        $certChain += [System.Convert]::ToBase64String($_.Certificate.GetRawCertData())
+        $numberInChain += 1
     }
 
-    $logs.GetEnumerator() | ForEach-Object {
+    $scts = [System.Collections.ArrayList]@()
+    $theBegnning = Get-Date 1/1/1970
+    $nonGoogleLog = $googleLog = $false
 
-        $logurl = $_.Value
+    $logs.GetEnumerator() | Sort-Object {Get-Random} | ForEach-Object {
+        if ($count) {
+            # We must make sure that we submit it to at least one Google log and one non-Google log
+            if ($scts.Count -gt 1 -and $scts.Count -eq ($count -1)) {
+                # This is the last submission. It must make the equation valid
+                if ((($_.Name -like "google*") -and ($nonGoogleLog -eq $false)) -or
+                   (($_.Name -notlike "google*") -and ($googleLog -eq $false))) {
+                    return
+                }
+            }
+            if ($scts.Count -ge $count) {
+                return
+            }
+            if ($_.Name -like "google*") {
+                $googleLog = $true
+            } else {
+                $nonGoogleLog = $true
+            }
+        }
 
-        $thebegnning = Get-Date 1/1/1970
-
-        $addurl = "$($logurl)/ct/v1/add-chain" -replace "(?<!:)\/\/", "/" # ugly hack to avoid double slashes
+        $addurl = "$($_.Value)/ct/v1/add-chain" -replace "(?<!:)\/\/", "/" # ugly hack to avoid double slashes
 
         $params = @{
             "Uri" = $addurl
             "Method" = "POST"
             "ContentType" = "application/json"
-            "Body" = (ConvertTo-Json -InputObject @{'chain'=$certchain})
+            "Body" = (ConvertTo-Json -InputObject @{'chain'=$certChain})
             "UserAgent" = "Cert-Tools (https://github.com/magnuswatn/cert-tools)"
         }
 
+        $logurl = $_.Value
         try {
-            $loganswer = Invoke-RestMethod @params
+            $logAnswer = Invoke-RestMethod @params
         } catch {
             Write-Warning "Could not submit the cert to the log $($logurl): $($_)"
-            return 
+            return
         }
 
-        "`r`n#####################$($logurl)#####################"
+        "`r`n#####################$($_.Value)#####################"
         "[SCT version]"
-        " $($loganswer.sct_version)`r`n"
+        " $($logAnswer.sct_version)`r`n"
         "[Log ID]"
-        " $(PrintHEX($loganswer.id))`r`n"
+        " $(PrintHEX($logAnswer.id))`r`n"
         "[Timestamp]"
-        " $(Get-Date $thebegnning.AddMilliseconds($loganswer.timestamp) -format s)`r`n"
+        " $(Get-Date $theBegnning.AddMilliseconds($logAnswer.timestamp) -format s)`r`n"
         "[Extensions]"
-        " $($loganswer.extensions)`r`n"
+        " $($logAnswer.extensions)`r`n"
         "[Signature]"
-        " $($loganswer.signature)`r`n"
+        " $($logAnswer.signature)`r`n"
+
+        $null = $scts.add((CreateSCT $logAnswer))
     }
+    "`r`n`r`nSCT list:"
+    CreateSCTList $scts
 
     [Net.ServicePointManager]::SecurityProtocol = $oldtlsprotocols
 }
