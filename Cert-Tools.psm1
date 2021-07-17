@@ -15,15 +15,30 @@ $script:signatureAlgorihtms = @{
 # $knownLogs = Invoke-RestMethod https://www.gstatic.com/ct/log_list/log_list.json
 # $hash = [System.Security.Cryptography.SHA256Managed]::new()
 # $knownLogs.logs | foreach { "`"$([system.convert]::ToBase64String($hash.ComputeHash([System.Convert]::FromBase64String($_.key))))`" = `"$($_.description)`"" }
-# Last updated 2017-08-20
+# Last updated 2021-07-17
 $script:knownLogs = @{
+    "9lyUL9F3MCIUVBgIMJRWjuNNExkzv98MLyALzE7xZOM=" = "Google 'Argon2021' log"
+    "KXm+8J45OSHwVnOfY6V35b5XfZxgCvj5TV0mXCVdx4Q=" = "Google 'Argon2022' log"
+    "6D7Q2j71BjUy51covIlryQPTy9ERa+zraeF3fW0GvW4=" = "Google 'Argon2023' log"
+    "fT7y+I//iFVoJMLAyp5SiXkrxQ54CX8uapdomX4i8Nc=" = "Google 'Xenon2021' log"
+    "RqVV63X6kSAwtaKJafTzfREsQXS+/Um4havy/HD+bUc=" = "Google 'Xenon2022' log"
+    "rfe++nz/EMiLnT2cHj4YarRnKV3PsQwkyoWGNOvcgoo=" = "Google 'Xenon2023' log"
     "aPaY+B9kgr46jO65KB1M/HFRXWeT1ETRCmesu09P+8Q=" = "Google 'Aviator' log"
     "KTxRllTIOWW6qlD8WAfUt2+/WHopctykwwz05UVH9Hg=" = "Google 'Icarus' log"
     "pLkJkLQYWBSHuxOizGdwCjw1mAT5G9+443fNDsgN3BA=" = "Google 'Pilot' log"
     "7ku9t3XOYLrhQmkfq+GeZqMPfl+wctiDAMR7iXqo/cs=" = "Google 'Rocketeer' log"
     "u9nfvB+KcbWTlCOXqpJ7RzhXlQqrUugakJZkNo4e0YU=" = "Google 'Skydiver' log"
+    "RJRlLrDuzq/EQAfYqP4owNrmgr7YyzG1P9MzlrW2gag=" = "Cloudflare 'Nimbus2021' Log"
+    "QcjKsd8iRkoQxqE6CUKHXk4xixsD6+tLx2jwkGKWBvY=" = "Cloudflare 'Nimbus2022' Log"
+    "ejKMVNi3LbYg6jjgUh7phBZwMhOFTTvSK8E6V6NS61I=" = "Cloudflare 'Nimbus2023' Log"
     "VhQGmi/XwuzT9eG9RLI+x0Z2ubyZEVzA75SYVdaJ0N0=" = "DigiCert Log Server"
     "h3W/51l8+IxDmV+9827/Vo1HVjb/SrVgwbTq/16ggw8=" = "DigiCert Log Server 2"
+    "XNxDkv7mq0VEsV6a1FbmEDf71fpH3KFzlLJe5vbHDso=" = "DigiCert Yeti2021 Log"
+    "IkVFB1lVJFaWP6Ev8fdthuAjJmOtwEt/XcaDXG7iDwI=" = "DigiCert Yeti2022 Log"
+    "Nc8ZG7+xbFe/D61MbULLu7YnICZR6j/hKu+oA8M71kw=" = "DigiCert Yeti2023 Log"
+    "7sCV7o1yZA+S48O5G8cSo2lqCXtLahoUOOZHssvtxfk=" = "DigiCert Nessie2021 Log"
+    "UaOw9f0BeZxWbbg3eI8MpHrMGyfL956IQpoN/tSLBeU=" = "DigiCert Nessie2022 Log"
+    "s3N3B+GEUPhjhtYFqdwRCUp5LbFnDAuH3PADDnk2pZo=" = "DigiCert Nessie2023 Log"
     "3esdK3oNT6Ygi4GtgWhwfi6OnQHVXIiNPRHEzbbsvsw=" = "Symantec log"
     "vHjh38X2PGhGSTNNoQ+hXwl5aSAJwIG08/aRfz7ZuKU=" = "Symantec 'Vega' log"
     "FZcEiNe5l6Bb61JRKt7o0ui0oxZSZBIan6v71fha2T8=" = "Symantec 'Sirius' log"
@@ -31,11 +46,19 @@ $script:knownLogs = @{
     "dGG0oJz7PUHXUVlXWy52SaRFqNJ3CbDMVkpkgrfrQaM=" = "Izenpe log"
     "QbLcLonmPOSvG6e7Kb9oxt7m+fHMBH4w3/rjs7olkmM=" = "WoSign log"
     "rDua7X+pZ0dXFZ5tfVdWcvnZgQCUHpve/+yhMTt1eC0=" = "Venafi log"
-    "AwGd8/2FppqOvR+sxtqbpz5Gl3T+d/V5/FoIuDKMHWs=" = "Venafi Gen2 CT log"
     "pXesnO11SN2PAltnokEInfhuD0duwgPC7L7bGF8oJjg=" = "CNNIC CT log"
     "NLtq1sPfnAPuqKSZ/3iRSGydXlysktAfe/0bzhnbSO8=" = "StartCom log"
-    "VYHUwhaQNgFK6gubVzxT8MDkOHhwJQgXL6OqHQcT0ww=" = "Comodo 'Sabre' CT log"
-    "b1N2rDHwMRnYmQCkURX/dxUcEdkCwQApBo2yCJo32RM=" = "Comodo 'Mammoth' CT log"
+    "VYHUwhaQNgFK6gubVzxT8MDkOHhwJQgXL6OqHQcT0ww=" = "Sectigo 'Sabre' CT log"
+    "b1N2rDHwMRnYmQCkURX/dxUcEdkCwQApBo2yCJo32RM=" = "Sectigo 'Mammoth' CT log"
+    "lCC8Ho7VjWyIcx+CiyIsDdHaTV5sT5Q9YdtOL1hNosI=" = "Let's Encrypt 'Oak2021' log"
+    "36Veq2iCTx9sre64X04+WurNohKkal6OOxLAIERcKnM=" = "Let's Encrypt 'Oak2022' log"
+    "tz77JN+cTbp18jnFulj0bF38Qs96nzXEnh0JgSXttJk=" = "Let's Encrypt 'Oak2023' log"
+    "qNxS9j1rJCXlMeN89ORKcU8UKiCAOw0E0uLuBmR5SiM=" = "Trust Asia CT2021"
+    "Z422Wz50Q7bzo3DV4TqxtDvgoNNR98p0IlDHxvpRqIo=" = "Trust Asia Log2021"
+    "w2X5s2VPMoPHnamOk9dBj1ure+MlLJjh0vBLuetCfSM=" = "Trust Asia Log2022"
+    "6H6nZgvCbPYALvVyXT/g4zG5OTu5L79Y6zuQSdr1Q1o=" = "Trust Asia Log2023"
+    # old logs
+    "AwGd8/2FppqOvR+sxtqbpz5Gl3T+d/V5/FoIuDKMHWs=" = "Venafi Gen2 CT log"
 }
 
 # Base64 encoded versions of ASN1 encoded OIDs
