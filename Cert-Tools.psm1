@@ -41,25 +41,25 @@ $script:knownLogs = @{
 # Base64 encoded versions of ASN1 encoded OIDs
 $script:knownOIDs = @{
     # 2.23.140.1.1
-    "Z4EMAQE="  = "Extended validation TLS certificate"
+    "Z4EMAQE="         = "Extended validation TLS certificate"
     # 2.23.140.1.2.1
-    "Z4EMAQIB" = "Domain validated TLS certificate"
+    "Z4EMAQIB"         = "Domain validated TLS certificate"
     # 2.23.140.1.2.2
-    "Z4EMAQIC" = "Organization validated TLS certificate"
+    "Z4EMAQIC"         = "Organization validated TLS certificate"
     # 2.16.578.1.26.1.3.2
-    "YIRCARoBAwI=" = "Buypass Enterprise certificate"
+    "YIRCARoBAwI="     = "Buypass Enterprise certificate"
     # 2.16.578.1.26.1.3.1
-    "YIRCARoBAwE=" = "Buypass Person-High certificate"
+    "YIRCARoBAwE="     = "Buypass Person-High certificate"
     # 2.16.578.1.26.1.0.3.2
-    "YIRCARoBAAMC" = "Buypass TEST4 Enterprise certificate"
+    "YIRCARoBAAMC"     = "Buypass TEST4 Enterprise certificate"
     # 2.16.578.1.26.1.0
-    "YIRCARoBAA==" = "Buypass TEST4 Person-High certificate"
+    "YIRCARoBAA=="     = "Buypass TEST4 Person-High certificate"
     # 2.16.578.1.29.12.1.1.0
-    "YIRCAR0MAQEA" = "Commfides Person-High certificate"
+    "YIRCAR0MAQEA"     = "Commfides Person-High certificate"
     # 2.16.578.1.29.12.1.1.1
-    "YIRCAR0MAQEB" = "Commfides Person-High certificate"
+    "YIRCAR0MAQEB"     = "Commfides Person-High certificate"
     # 2.16.578.1.29.13.1.1.0
-    "YIRCAR0NAQEA" = "Commfides Enterprise certificate"
+    "YIRCAR0NAQEA"     = "Commfides Enterprise certificate"
     # 2.16.578.1.29.912.1.1.0
     "YIRCAR2HEAEBAA==" = "Commfides TEST Person-High certificate"
     # 2.16.578.1.29.912.1.1.1
@@ -74,7 +74,7 @@ $script:knownOIDs = @{
 
 function ConvertBigEndianArray ($data, $offset, $count) {
     <# Returns a subset of an BigEndian array as the correct endian for the system #>
-    $subArray = $data[$offset..($offset+$count-1)]
+    $subArray = $data[$offset..($offset + $count - 1)]
     if ([System.BitConverter]::IsLittleEndian) {
         [System.Array]::Reverse($subArray)
     }
@@ -83,7 +83,7 @@ function ConvertBigEndianArray ($data, $offset, $count) {
 
 function CreateBigEndianArray($data) {
     <# Creates an BigEndian array from an array with the system endian #>
-    if([System.BitConverter]::IsLittleEndian) {
+    if ([System.BitConverter]::IsLittleEndian) {
         [System.Array]::Reverse($data)
     }
     return $data
@@ -106,11 +106,11 @@ function ParseSCTExtension ($data) {
     # some sanity checks
     if ($outerLength -ne ($data.length - $numberOfLengthBytes - 2)) {
         throw ("Extension length ($(($data.length))) does not match the ASN1 structure length ($($outerLength)). " +
-               "This was unexpected.")
+            "This was unexpected.")
     }
-    if ($outerLength -ne ($innerLength +2)) {
+    if ($outerLength -ne ($innerLength + 2)) {
         throw ("Length of ASN1 structure ($($outerLength)) does not match the length of the SCTs " +
-               "contained within ($($innerLength)). This was unexpected.")
+            "contained within ($($innerLength)). This was unexpected.")
     }
 
     $scts = @()
@@ -118,7 +118,7 @@ function ParseSCTExtension ($data) {
         $length = [System.BitConverter]::ToUInt16((ConvertBigEndianArray $data $offset 2), 0)
         $offset += 2
 
-        $sct = $data[$offset..($offset+$length-1)]
+        $sct = $data[$offset..($offset + $length - 1)]
         $scts += ParseSCT $sct
         $offset += $length
 
@@ -140,7 +140,7 @@ function ParseSCT ($data) {
     }
     $offset += 1
 
-    $logID = $data[$offset..($offset+31)]
+    $logID = $data[$offset..($offset + 31)]
     $sct | Add-Member -type NoteProperty -Name LogID -Value $([System.Convert]::ToBase64String($logID))
     $offset += 32
 
@@ -153,12 +153,12 @@ function ParseSCT ($data) {
 
     if ($extLength -gt 0) {
         # Whoa, This SCT has extensions! This must be the future.
-        $extensions = $data[$offset..($offset+$extLength-1)]
+        $extensions = $data[$offset..($offset + $extLength - 1)]
         $sct | Add-Member -type NoteProperty -Name Extensions -Value $extensions
     }
     $offset += $extLength
 
-    $sigAlgID = $data[$offset..($offset+1)]
+    $sigAlgID = $data[$offset..($offset + 1)]
     $signatureAlgorithm = $signatureAlgorihtms.get_item([System.Convert]::ToBase64String($sigAlgID))
     $sct | Add-Member -type NoteProperty -Name SignatureAlgorithm -Value $signatureAlgorithm
     $offset += 2
@@ -166,7 +166,7 @@ function ParseSCT ($data) {
     $signatureLength = [System.BitConverter]::ToUInt16((ConvertBigEndianArray $data $offset 2), 0)
     $offset += 2
 
-    $signature = $data[$offset..($offset+$signatureLength-1)]
+    $signature = $data[$offset..($offset + $signatureLength - 1)]
     $sct | Add-Member -type NoteProperty -Name signature -Value $signature
 
     return $sct
@@ -210,7 +210,8 @@ Function DecodeASN1Length ($data, $offset) {
         $numberOfLengthBytes = 0
         $length = $data[$offset]
         $offset += 1
-    } else {
+    }
+    else {
         # long form
         $numberOfLengthBytes = $data[$offset] - 128
         $offset += 1
@@ -220,7 +221,7 @@ Function DecodeASN1Length ($data, $offset) {
         $lengthArray = New-Object -TypeName byte[] -ArgumentList 8
 
         [array]::Copy(
-            $data[$offset..($offset+$numberOfLengthBytes-1)],
+            $data[$offset..($offset + $numberOfLengthBytes - 1)],
             0,
             $lengthArray,
             ($lengthArray.Length - $numberOfLengthBytes),
@@ -252,7 +253,7 @@ Function ParseCertificatePolicies ($data) {
         $offset += 1
 
         $oidLength, $offset, $null = DecodeASN1Length $data $offset
-        $oidData = $data[$offset..($offset+$oidLength-1)]
+        $oidData = $data[$offset..($offset + $oidLength - 1)]
         $offset += $oidLength
 
         $oid = ParseOID($oidData)
@@ -274,7 +275,7 @@ Function ParseOID ($data) {
     $length, $offset, $null = DecodeASN1Length $data $offset
 
     # There might be more data here (e.g. Policy Qualifier Info), but we only care about the OID
-    return [System.Convert]::ToBase64String($data[$offset..($offset+$length-1)])
+    return [System.Convert]::ToBase64String($data[$offset..($offset + $length - 1)])
 }
 
 Function RetrieveCertificateFromHost ($host) {
@@ -287,7 +288,7 @@ Function RetrieveCertificateFromHost ($host) {
     if ($port) {
         $url += ":$($port)"
     }
-    
+
     # Activate all SSL/TLS protocols, so that we can connect to as many sites as possible
     $oldtlsprotocols = [Net.ServicePointManager]::SecurityProtocol
     [Net.ServicePointManager]::SecurityProtocol = 'ssl3', "tls", "tls11", "tls12"
@@ -300,21 +301,23 @@ Function RetrieveCertificateFromHost ($host) {
 
     try {
         $request.GetResponse().Dispose()
-    } catch {
+    }
+    catch {
         # Ignoring errors silently, might come of non-200 code or trust error. We only care if we got a cert
         $error = $_
     }
 
     # Setting the TLS protocols back to whatever it was
     [Net.ServicePointManager]::SecurityProtocol = $oldtlsprotocols
-        
+
     if ($request.ServicePoint.Certificate -ne $null) {
         $params = @{
             "ArgumentList" = $request.ServicePoint.Certificate
-            "TypeName" = "System.Security.Cryptography.X509Certificates.X509Certificate2"
+            "TypeName"     = "System.Security.Cryptography.X509Certificates.X509Certificate2"
         }
         return New-Object @params
-    } else {
+    }
+    else {
         # We didn't get a certificate :-( throwing the error from the request
         throw $error
     }
@@ -325,12 +328,13 @@ Function PrintPEM ($certificate) {
     $b64cert = [System.Convert]::ToBase64String($certificate.RawData)
     $pemcert = "-----BEGIN CERTIFICATE-----`r`n"
     $i = 0
-    foreach($char in $b64cert.ToCharArray()) {
-        if ($i -eq 64){
-            $pemcert += "`r`n$char" 
+    foreach ($char in $b64cert.ToCharArray()) {
+        if ($i -eq 64) {
+            $pemcert += "`r`n$char"
             $i = 0
-        } else { 
-            $pemcert += $char 
+        }
+        else {
+            $pemcert += $char
         }
         $i += 1
     }
@@ -344,10 +348,10 @@ Function PrintHEX ($data) {
     <# Print base64 encoded data as HEX #>
     $hexdump = ""
     $rawdata = [System.Convert]::FromBase64String($data)
-    foreach($byte in $rawdata) {
+    foreach ($byte in $rawdata) {
         $hexdump += "{0:X2}:" -f $byte
     }
-    return $hexdump.Substring(0,$hexdump.Length-1)
+    return $hexdump.Substring(0, $hexdump.Length - 1)
 }
 
 Function RetrieveCertificateFromFile ($path) {
@@ -368,7 +372,7 @@ Function OpenCertificate ($cert) {
 Function PrintCertificateInfo ($id, $cert) {
     <# Prints information about a certificate #>
     $serialnumberINT = $([bigint]::Parse($cert.GetSerialNumberString(),
-                         [System.Globalization.NumberStyles]::HexNumber))
+            [System.Globalization.NumberStyles]::HexNumber))
     "#####################$($id)#####################"
     "$cert"
     "[Key Usages]"
@@ -387,10 +391,12 @@ Function PrintCertificateInfo ($id, $cert) {
                     $logName = ($knownLogs.get_item($_.LogID))
                     if ($logName) {
                         "  $($logName)"
-                    } else {
+                    }
+                    else {
                         "  Unknown log"
                     }
-                } else {
+                }
+                else {
                     "  $($_.Error)"
                 }
             }
@@ -415,7 +421,8 @@ Function PrintCertificateStatus ($cert) {
     "[Certificate status]"
     if ($chain.Build($cert)) {
         "  OK`r`n"
-    } else {
+    }
+    else {
         "  $($chain.ChainStatus.StatusInformation)`r`n"
     }
 }
@@ -477,28 +484,30 @@ Function Get-CertFromLDAP {
     #>
     [cmdletbinding()]
     Param (
-        [Parameter(mandatory=$true)][System.Uri]$ldapstring,
-        [Parameter(mandatory=$false)][Switch]$Open,
-        [Parameter(mandatory=$false)][Switch]$PrintPEM,
-        [Parameter(mandatory=$false)][Switch]$Status,
-        [Parameter(mandatory=$false)][Switch]$OnlyValid,
-        [Parameter(mandatory=$false)][Int]$MaxRetries=5
+        [Parameter(mandatory = $true)][System.Uri]$ldapstring,
+        [Parameter(mandatory = $false)][Switch]$Open,
+        [Parameter(mandatory = $false)][Switch]$PrintPEM,
+        [Parameter(mandatory = $false)][Switch]$Status,
+        [Parameter(mandatory = $false)][Switch]$OnlyValid,
+        [Parameter(mandatory = $false)][Int]$MaxRetries = 5
     )
-    
+
     $ErrorActionPreference = "Stop"
     Add-Type -AssemblyName System.DirectoryServices.Protocols
 
     if ($ldapstring.scheme -eq "ldap") {
         $secure = $false
-    } elseif ($ldapstring.Scheme -eq "ldaps") {
+    }
+    elseif ($ldapstring.Scheme -eq "ldaps") {
         $secure = $true
-    } else {
+    }
+    else {
         throw "Unknown protocol. LDAP(S) only."
     }
 
     $ldapConnectionParams = @{
         "ArgumentList" = "$($ldapstring.Host):$($ldapstring.Port)"
-        "TypeName" = "System.DirectoryServices.Protocols.LdapConnection"
+        "TypeName"     = "System.DirectoryServices.Protocols.LdapConnection"
     }
 
     $ldapConnection = New-Object @ldapConnectionParams
@@ -514,7 +523,8 @@ Function Get-CertFromLDAP {
     if ($parsetstring[3] -ne "") {
         #.NET url encodes the string automagically, so we need to decode it
         $filter = [System.Uri]::UnescapeDataString($parsetstring[3])
-    } else {
+    }
+    else {
         # rfc1959: If <filter> is omitted, a filter of "(objectClass=*)" is assumed.
         $filter = "(objectClass=*)"
     }
@@ -529,21 +539,21 @@ Function Get-CertFromLDAP {
 
     DO {
         $searchRequestParams = @{
-            "ArgumentList" = $basedn,$filter,$scope,$attributes
-            "TypeName" = "System.DirectoryServices.Protocols.SearchRequest"
+            "ArgumentList" = $basedn, $filter, $scope, $attributes
+            "TypeName"     = "System.DirectoryServices.Protocols.SearchRequest"
         }
         $searchRequest = New-Object @searchRequestParams
         $searchResponse = $ldapConnection.SendRequest($searchRequest)
 
         if ($searchResponse.Entries.Count -ne 0) {
             "Got $($searchResponse.Entries.Count) results from the query:"
-        } else {
+        }
+        else {
             "Didn't get any results, check the query"
         }
 
         $DNarray = @()
-        foreach ($i in $searchResponse.Entries)
-        {
+        foreach ($i in $searchResponse.Entries) {
             $certarray = $i.Attributes.'usercertificate;binary'
             if ($certarray) {
                 $cert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2
@@ -567,28 +577,31 @@ Function Get-CertFromLDAP {
                 if ($open) {
                     OpenCertificate($cert)
                 }
-            } else {
+            }
+            else {
                 Write-Warning ("This result didn't contain any certificates. " +
-                               "Was usercertificate;binary in the attribute list?")
+                    "Was usercertificate;binary in the attribute list?")
             }
         }
         if ($searchResponse.Entries.Count -eq 20) {
             $retries += 1
             if ($retries -le $MaxRetries) {
                 Write-Warning ("Got exactly 20 certificates from server, this may indicate an limit on the " +
-                               "server. Will try to exclude these results and do another search")
+                    "server. Will try to exclude these results and do another search")
                 Start-Sleep(2)
 
                 foreach ($DN in $DNarray) {
                     $excludedresults += "(!($DN))"
                 }
                 $filter = "(&$filter$excludedresults)"
-            } else {
-                Write-Warning ("Got exactly 20 certificates from server, this may indicate an limit on the " +
-                               "server, but will not try again, as the retry count is exceeded. " +
-                               "Try again with higher retry count or a more narrow filter.")
             }
-        } else {
+            else {
+                Write-Warning ("Got exactly 20 certificates from server, this may indicate an limit on the " +
+                    "server, but will not try again, as the retry count is exceeded. " +
+                    "Try again with higher retry count or a more narrow filter.")
+            }
+        }
+        else {
             $retries = $MaxRetries + 1
         }
     } While ($retries -le $MaxRetries)
@@ -637,25 +650,25 @@ Function Submit-CertToCT {
     [cmdletbinding()]
     Param (
         # The source to retrieve the certificate from. Can either be a file or a hostname (and optionally a port)
-        [Parameter(mandatory=$true)][System.String]$source,
+        [Parameter(mandatory = $true)][System.String]$source,
         # The log to submit to. Can be a comma separated list over several logs.
         # If not supplied the default logs will be used
-        [Parameter(mandatory=$false)][System.String]$log,
+        [Parameter(mandatory = $false)][System.String]$log,
         # The number of logs to submit to. Is only supported with the built in list of logs.
         # Is primarily useful for limiting the size of the SCT list.
-        [Parameter(mandatory=$false)][int]$count
+        [Parameter(mandatory = $false)][int]$count
     )
 
     $ErrorActionPreference = "Stop"
 
     # Default logs
     $logs = @{
-        'google-pilot' = [System.Uri]"https://ct.googleapis.com/pilot";
-        'google-rocketeer' = [System.Uri]"https://ct.googleapis.com/rocketeer";
+        'google-pilot'        = [System.Uri]"https://ct.googleapis.com/pilot";
+        'google-rocketeer'    = [System.Uri]"https://ct.googleapis.com/rocketeer";
         'digicert-logserver2' = [System.Uri]"https://ct2.digicert-ct.com/log";
-        'venafi-gen2' = [System.Uri]"https://ctlog-gen2.api.venafi.com";
-        'comodo-mammoth' = [System.Uri]"https://mammoth.ct.comodo.com";
-        'comodo-sabre' = [System.Uri]"https://sabre.ct.comodo.com";
+        'venafi-gen2'         = [System.Uri]"https://ctlog-gen2.api.venafi.com";
+        'comodo-mammoth'      = [System.Uri]"https://mammoth.ct.comodo.com";
+        'comodo-sabre'        = [System.Uri]"https://sabre.ct.comodo.com";
     }
 
     # If the log doesn't support TLSv1.2 it's not worth submitting to
@@ -671,7 +684,8 @@ Function Submit-CertToCT {
 
     try {
         $certificate = RetrieveCertificateFromFile($source)
-    } catch {
+    }
+    catch {
         $certificate = RetrieveCertificateFromHost($source)
     }
 
@@ -697,13 +711,13 @@ Function Submit-CertToCT {
     $theBegnning = Get-Date 1/1/1970
     $nonGoogleLog = $googleLog = $false
 
-    $logs.GetEnumerator() | Sort-Object {Get-Random} | ForEach-Object {
+    $logs.GetEnumerator() | Sort-Object { Get-Random } | ForEach-Object {
         if ($count) {
             # We must make sure that we submit it to at least one Google log and one non-Google log
-            if ($scts.Count -gt 1 -and $scts.Count -eq ($count -1)) {
+            if ($scts.Count -gt 1 -and $scts.Count -eq ($count - 1)) {
                 # This is the last submission. It must make the equation valid
                 if ((($_.Name -like "google*") -and ($nonGoogleLog -eq $false)) -or
-                   (($_.Name -notlike "google*") -and ($googleLog -eq $false))) {
+                    (($_.Name -notlike "google*") -and ($googleLog -eq $false))) {
                     return
                 }
             }
@@ -712,7 +726,8 @@ Function Submit-CertToCT {
             }
             if ($_.Name -like "google*") {
                 $googleLog = $true
-            } else {
+            }
+            else {
                 $nonGoogleLog = $true
             }
         }
@@ -720,17 +735,18 @@ Function Submit-CertToCT {
         $addurl = "$($_.Value)/ct/v1/add-chain" -replace "(?<!:)\/\/", "/" # ugly hack to avoid double slashes
 
         $params = @{
-            "Uri" = $addurl
-            "Method" = "POST"
+            "Uri"         = $addurl
+            "Method"      = "POST"
             "ContentType" = "application/json"
-            "Body" = (ConvertTo-Json -InputObject @{'chain'=$certChain})
-            "UserAgent" = "Cert-Tools (https://github.com/magnuswatn/cert-tools)"
+            "Body"        = (ConvertTo-Json -InputObject @{'chain' = $certChain })
+            "UserAgent"   = "Cert-Tools (https://github.com/magnuswatn/cert-tools)"
         }
 
         $logurl = $_.Value
         try {
             $logAnswer = Invoke-RestMethod @params
-        } catch {
+        }
+        catch {
             Write-Warning "Could not submit the cert to the log $($logurl): $($_)"
             return
         }
@@ -786,22 +802,22 @@ Function Get-CertFromCT {
     #>
     [cmdletbinding()]
     Param (
-        [Parameter(mandatory=$true)][String]$domain,
-        [Parameter(mandatory=$false)][Switch]$Open,
-        [Parameter(mandatory=$false)][Switch]$PrintPEM,
-        [Parameter(mandatory=$false)][Switch]$Status,
-        [Parameter(mandatory=$false)][Switch]$OnlyValid,
-        [Parameter(mandatory=$false)][Switch]$IncludeDuplicate,
-        [Parameter(mandatory=$false)][Switch]$OpenInCrtSh
+        [Parameter(mandatory = $true)][String]$domain,
+        [Parameter(mandatory = $false)][Switch]$Open,
+        [Parameter(mandatory = $false)][Switch]$PrintPEM,
+        [Parameter(mandatory = $false)][Switch]$Status,
+        [Parameter(mandatory = $false)][Switch]$OnlyValid,
+        [Parameter(mandatory = $false)][Switch]$IncludeDuplicate,
+        [Parameter(mandatory = $false)][Switch]$OpenInCrtSh
     )
-    
+
     $ErrorActionPreference = "Stop"
-    
+
     # TODO: add the possibility to use a Cert Spotter account
 
     $params = @{
         "UserAgent" = "Cert-Tools (https://github.com/magnuswatn/cert-tools)"
-        "Uri" = "https://certspotter.com/api/v0/certs?domain=$($domain)&duplicate=$($IncludeDuplicate)"
+        "Uri"       = "https://certspotter.com/api/v0/certs?domain=$($domain)&duplicate=$($IncludeDuplicate)"
     }
 
     $response = Invoke-RestMethod @params
@@ -848,10 +864,10 @@ Function Get-CertFromHost {
     #>
     [cmdletbinding()]
     Param (
-        [Parameter(mandatory=$true)][String]$host,
-        [Parameter(mandatory=$false)][Switch]$Open,
-        [Parameter(mandatory=$false)][Switch]$PrintPEM,
-        [Parameter(mandatory=$false)][Switch]$Status
+        [Parameter(mandatory = $true)][String]$host,
+        [Parameter(mandatory = $false)][Switch]$Open,
+        [Parameter(mandatory = $false)][Switch]$PrintPEM,
+        [Parameter(mandatory = $false)][Switch]$Status
     )
 
     $ErrorActionPreference = "Stop"
@@ -890,10 +906,10 @@ Function Get-CertFromFile {
     #>
     [cmdletbinding()]
     Param (
-        [Parameter(mandatory=$true)][String]$file,
-        [Parameter(mandatory=$false)][Switch]$Open,
-        [Parameter(mandatory=$false)][Switch]$PrintPEM,
-        [Parameter(mandatory=$false)][Switch]$Status
+        [Parameter(mandatory = $true)][String]$file,
+        [Parameter(mandatory = $false)][Switch]$Open,
+        [Parameter(mandatory = $false)][Switch]$PrintPEM,
+        [Parameter(mandatory = $false)][Switch]$Status
     )
 
     $ErrorActionPreference = "Stop"
@@ -932,10 +948,10 @@ Function Get-CertFromBase64 {
     #>
     [cmdletbinding()]
     Param (
-        [Parameter(mandatory=$true)][String]$string,
-        [Parameter(mandatory=$false)][Switch]$Open,
-        [Parameter(mandatory=$false)][Switch]$PrintPEM,
-        [Parameter(mandatory=$false)][Switch]$Status
+        [Parameter(mandatory = $true)][String]$string,
+        [Parameter(mandatory = $false)][Switch]$Open,
+        [Parameter(mandatory = $false)][Switch]$PrintPEM,
+        [Parameter(mandatory = $false)][Switch]$Status
     )
 
     $ErrorActionPreference = "Stop"
@@ -944,7 +960,8 @@ Function Get-CertFromBase64 {
 
     try {
         $cert.Import([System.Convert]::FromBase64String($string))
-    } catch {
+    }
+    catch {
         throw "Could not load certificate: $($_)"
     }
 
@@ -984,18 +1001,19 @@ Function Get-CertFromPKCS12 {
     #>
     [cmdletbinding()]
     Param (
-        [Parameter(mandatory=$true)][String]$file,
-        [Parameter(mandatory=$false)][String]$password,
-        [Parameter(mandatory=$false)][Switch]$Open,
-        [Parameter(mandatory=$false)][Switch]$PrintPEM,
-        [Parameter(mandatory=$false)][Switch]$Status
+        [Parameter(mandatory = $true)][String]$file,
+        [Parameter(mandatory = $false)][String]$password,
+        [Parameter(mandatory = $false)][Switch]$Open,
+        [Parameter(mandatory = $false)][Switch]$PrintPEM,
+        [Parameter(mandatory = $false)][Switch]$Status
     )
 
     $ErrorActionPreference = "Stop"
 
     if ($password) {
         $securepassword = ($password | ConvertTo-SecureString -AsPlainText -Force)
-    } else {
+    }
+    else {
         $securepassword = Read-Host -Prompt "Enter password" -AsSecureString
     }
 
@@ -1034,4 +1052,4 @@ Function Get-CertFromPKCS12 {
 #endregion
 
 Export-ModuleMember -Function Get-CertFromLDAP, Submit-CertToCT, Get-CertFromCT, Get-CertFromHost,
-                              Get-CertFromFile, Get-CertFromBase64, Get-CertFromPKCS12
+Get-CertFromFile, Get-CertFromBase64, Get-CertFromPKCS12
