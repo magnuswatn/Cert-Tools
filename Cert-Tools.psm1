@@ -3,7 +3,7 @@
 
     https://github.com/magnuswatn/cert-tools
 #>
-
+using namespace System.Security.Cryptography.X509Certificates
 #region scriptvariables
 
 $script:signatureAlgorihtms = @{
@@ -301,16 +301,10 @@ Function ParseOID ($data) {
     return [System.Convert]::ToBase64String($data[$offset..($offset + $length - 1)])
 }
 
-Function RetrieveCertificateFromHost ($host) {
+Function RetrieveCertificateFromHost ($hostname) {
     <# Gets a certificate from a host listening on TLS #>
-    $parsedHost = $host.split(":")
 
-    $url = "https://$($parsedHost[0])"
-
-    $port = $parsedHost[1]
-    if ($port) {
-        $url += ":$($port)"
-    }
+    $url = "https://$($hostname)"
 
     # Activate all SSL/TLS protocols, so that we can connect to as many sites as possible
     $oldtlsprotocols = [Net.ServicePointManager]::SecurityProtocol
@@ -327,22 +321,22 @@ Function RetrieveCertificateFromHost ($host) {
     }
     catch {
         # Ignoring errors silently, might come of non-200 code or trust error. We only care if we got a cert
-        $error = $_
+        $requestError = $_
     }
 
     # Setting the TLS protocols back to whatever it was
     [Net.ServicePointManager]::SecurityProtocol = $oldtlsprotocols
 
-    if ($request.ServicePoint.Certificate -ne $null) {
+    if ($null -ne $request.ServicePoint.Certificate) {
         $params = @{
             "ArgumentList" = $request.ServicePoint.Certificate
-            "TypeName"     = "System.Security.Cryptography.X509Certificates.X509Certificate2"
+            "TypeName"     = "X509Certificate2"
         }
         return New-Object @params
     }
     else {
         # We didn't get a certificate :-( throwing the error from the request
-        throw $error
+        throw $requestError
     }
 }
 
@@ -380,8 +374,7 @@ Function PrintHEX ($data) {
 Function RetrieveCertificateFromFile ($path) {
     <# Loads a certificate from file #>
     $pathtocert = (Resolve-Path -Path $path).path
-    $cert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2
-    $cert.Import($pathtocert)
+    $cert = [X509Certificate2]::new($pathtocert)
     return $cert
 }
 
@@ -439,7 +432,7 @@ Function PrintCertificateInfo ($id, $cert) {
 
 Function PrintCertificateStatus ($cert) {
     <# Prints information about the trust status of a certificate #>
-    $chain = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Chain
+    $chain = New-Object -TypeName X509Chain
 
     "[Certificate status]"
     if ($chain.Build($cert)) {
@@ -579,8 +572,7 @@ Function Get-CertFromLDAP {
         foreach ($i in $searchResponse.Entries) {
             $certarray = $i.Attributes.'usercertificate;binary'
             if ($certarray) {
-                $cert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2
-                $cert.Import($certarray[0])
+                $cert = [X509Certificate2]::new($certarray[0])
                 $DNarray += $($i.DistinguishedName).split(",")[0]
 
                 if ($OnlyValid) {
@@ -712,7 +704,7 @@ Function Submit-CertToCT {
         $certificate = RetrieveCertificateFromHost($source)
     }
 
-    $chain = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Chain
+    $chain = New-Object -TypeName X509Chain
 
     # Deactivating revocation check on the certificate chain, so that we can submit revoked certificates
     # Not something that should be copied without understanding what it does
@@ -844,9 +836,8 @@ Function Get-CertFromCT {
     $response = Invoke-RestMethod @params
 
     foreach ($i in $response) {
-        $cert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2
         $bincert = [System.Convert]::FromBase64String($i.cert.data)
-        $cert.Import($bincert)
+        $cert = [X509Certificate2]::new($bincert)
 
         PrintCertificateInfo $i.cert.sha256 $cert
 
@@ -977,10 +968,8 @@ Function Get-CertFromBase64 {
 
     $ErrorActionPreference = "Stop"
 
-    $cert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2
-
     try {
-        $cert.Import([System.Convert]::FromBase64String($string))
+        $cert = [X509Certificate2]::new([System.Convert]::FromBase64String($string))
     }
     catch {
         throw "Could not load certificate: $($_)"
