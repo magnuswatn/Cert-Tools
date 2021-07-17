@@ -968,8 +968,10 @@ Function Get-CertFromBase64 {
 
     $ErrorActionPreference = "Stop"
 
+    $unPemifiedString = $string -replace "-----(BEGIN|END) [^-]+-----", ""
+
     try {
-        $cert = [X509Certificate2]::new([System.Convert]::FromBase64String($string))
+        $cert = [X509Certificate2]::new([System.Convert]::FromBase64String($unPemifiedString))
     }
     catch {
         throw "Could not load certificate: $($_)"
