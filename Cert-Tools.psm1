@@ -806,8 +806,6 @@ Function Get-CertFromCT {
         [Parameter(mandatory = $false)][Switch]$Open,
         [Parameter(mandatory = $false)][Switch]$PrintPEM,
         [Parameter(mandatory = $false)][Switch]$Status,
-        [Parameter(mandatory = $false)][Switch]$OnlyValid,
-        [Parameter(mandatory = $false)][Switch]$IncludeDuplicate,
         [Parameter(mandatory = $false)][Switch]$OpenInCrtSh
     )
 
@@ -817,17 +815,17 @@ Function Get-CertFromCT {
 
     $params = @{
         "UserAgent" = "Cert-Tools (https://github.com/magnuswatn/cert-tools)"
-        "Uri"       = "https://certspotter.com/api/v0/certs?domain=$($domain)&duplicate=$($IncludeDuplicate)"
+        "Uri"       = "https://api.certspotter.com/v1/issuances?domain=$($domain)&expand=cert"
     }
 
     $response = Invoke-RestMethod @params
 
     foreach ($i in $response) {
         $cert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2
-        $bincert = [System.Convert]::FromBase64String($i.data)
+        $bincert = [System.Convert]::FromBase64String($i.cert.data)
         $cert.Import($bincert)
 
-        PrintCertificateInfo $i.sha256 $cert
+        PrintCertificateInfo $i.cert.sha256 $cert
 
         if ($Status) {
             PrintCertificateStatus($cert)
@@ -839,7 +837,7 @@ Function Get-CertFromCT {
             OpenCertificate($cert)
         }
         if ($OpenInCrtSh) {
-            Start-Process "https://crt.sh/?q=$([System.Uri]::EscapeDataString($i.sha256))"
+            Start-Process "https://crt.sh/?q=$([System.Uri]::EscapeDataString($i.cert.sha256))"
         }
     }
 }
